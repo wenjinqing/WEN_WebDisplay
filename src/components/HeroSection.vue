@@ -35,7 +35,10 @@ const seasonal = computed(() => {
 
     <div class="container hero-inner">
       <div class="hero-text">
-        <span class="badge font-cute">☕ 营业中 · OPEN</span>
+        <div class="badges">
+          <span class="badge font-cute">☕ 营业中 · OPEN</span>
+          <span class="badge status font-cute">店主现在:{{ site.authorStatus || '赶稿中 ✍️' }}</span>
+        </div>
         <h1 class="font-cute">{{ site.title }}</h1>
         <p class="slogan">{{ site.slogan }}</p>
         <p class="sub">
@@ -76,6 +79,13 @@ const seasonal = computed(() => {
   flex: 1.2;
 }
 
+.badges {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
 .badge {
   display: inline-block;
   padding: 4px 16px;
@@ -84,7 +94,12 @@ const seasonal = computed(() => {
   border: 2px solid var(--pink-soft);
   color: var(--pink-deep);
   font-size: 0.9rem;
-  margin-bottom: 20px;
+}
+
+.badge.status {
+  background: var(--pink-pale);
+  border-color: var(--pink-pale);
+  color: var(--ink);
 }
 
 h1 {

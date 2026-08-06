@@ -260,6 +260,7 @@ func handleMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		saveStore()
 		mu.Unlock()
+		addPoints(m.Nick, 5) // 留言 +5 鱼干
 		writeJSON(w, 200, m)
 	default:
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
@@ -293,6 +294,7 @@ func handleUrge(w http.ResponseWriter, r *http.Request) {
 		total := store.UrgeTotal
 		saveStore()
 		mu.Unlock()
+		addPoints(u.Nick, 2) // 催更 +2 鱼干
 		writeJSON(w, 200, map[string]any{"total": total, "urge": u})
 	default:
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
@@ -595,6 +597,7 @@ func handleWall(w http.ResponseWriter, r *http.Request) {
 		rateMu.Unlock()
 
 		log.Printf("新明信片: %s 寄出了 %s", nick, name)
+		addPoints(nick, 10) // 寄明信片 +10 鱼干
 		writeJSON(w, 200, post)
 	default:
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
@@ -754,7 +757,11 @@ var (
 	stats   Stats
 )
 
-const statsFile = "/var/lib/catcafe/stats.json"
+const (
+	statsFile    = "/var/lib/catcafe/stats.json"
+	commentsFile = "/var/lib/catcafe/comments.json" // 作品评论
+	pointsFile   = "/var/lib/catcafe/points.json"   // 猪咪积分
+)
 
 func loadStats() {
 	data, err := os.ReadFile(statsFile)
@@ -780,6 +787,157 @@ func handleHit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, out)
 }
 
+// ---------- 作品评论 ----------
+
+type Comment struct {
+	Nick    string `json:"nick"`
+	Content string `json:"content"`
+	Score   int    `json:"score"` // 爪印评分 1-5
+	Time    string `json:"time"`
+}
+
+var (
+	commentsMu sync.Mutex
+	comments   = map[string][]Comment{} // key: 小说文件名
+)
+
+func loadComments() {
+	data, err := os.ReadFile(commentsFile)
+	if err == nil {
+		json.Unmarshal(data, &comments)
+	}
+}
+
+func saveComments() {
+	data, _ := json.MarshalIndent(comments, "", "  ")
+	tmp := commentsFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err == nil {
+		os.Rename(tmp, commentsFile)
+	}
+}
+
+// GET /api/comments?file=xxx — 拉取某作品的评论
+// POST /api/comments {file, nick, content, score} — 发评论
+func handleComments(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		f := r.URL.Query().Get("file")
+		commentsMu.Lock()
+		list := comments[f]
+		commentsMu.Unlock()
+		if list == nil {
+			list = []Comment{}
+		}
+		writeJSON(w, 200, list)
+	case http.MethodPost:
+		var cm Comment
+		var req struct {
+			File string `json:"file"`
+			Comment
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "请求格式不对"})
+			return
+		}
+		if strings.Contains(req.File, "/") || strings.Contains(req.File, "..") || req.File == "" {
+			writeJSON(w, 400, map[string]string{"error": "参数不对"})
+			return
+		}
+		cm.Nick = clean(req.Nick, maxNickLen)
+		cm.Content = clean(req.Content, maxTextLen)
+		cm.Score = req.Score
+		if cm.Content == "" {
+			writeJSON(w, 400, map[string]string{"error": "评论内容不能为空喵"})
+			return
+		}
+		if cm.Score < 1 || cm.Score > 5 {
+			cm.Score = 5
+		}
+		if cm.Nick == "" {
+			cm.Nick = "匿名猪咪"
+		}
+		if rateLimited(r) {
+			writeJSON(w, 429, map[string]string{"error": "发得太快啦,歇一会儿"})
+			return
+		}
+		cm.Time = time.Now().Format("2006-01-02 15:04")
+		commentsMu.Lock()
+		comments[req.File] = append([]Comment{cm}, comments[req.File]...)
+		if len(comments[req.File]) > 100 {
+			comments[req.File] = comments[req.File][:100]
+		}
+		saveComments()
+		commentsMu.Unlock()
+		addPoints(cm.Nick, 5) // 评论 +5 鱼干
+		writeJSON(w, 200, cm)
+	default:
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+	}
+}
+
+// ---------- 猪咪积分/头衔 ----------
+
+var (
+	pointsMu sync.Mutex
+	points   = map[string]int{} // key: 昵称
+)
+
+func loadPoints() {
+	data, err := os.ReadFile(pointsFile)
+	if err == nil {
+		json.Unmarshal(data, &points)
+	}
+}
+
+func savePoints() {
+	data, _ := json.MarshalIndent(points, "", "  ")
+	tmp := pointsFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err == nil {
+		os.Rename(tmp, pointsFile)
+	}
+}
+
+// 匿名猪咪不累计积分(没法认领)
+func addPoints(nick string, n int) {
+	if nick == "" || nick == "匿名猪咪" {
+		return
+	}
+	pointsMu.Lock()
+	points[nick] += n
+	savePoints()
+	pointsMu.Unlock()
+}
+
+// 头衔:小奶猫 → 小猪咪 → 大橘 → 猫老大
+func titleFor(p int) (string, int) {
+	switch {
+	case p < 50:
+		return "小奶猫", 50
+	case p < 150:
+		return "小猪咪", 150
+	case p < 300:
+		return "大橘", 300
+	default:
+		return "猫老大", 0
+	}
+}
+
+// GET /api/points?nick=xxx — 查询积分和头衔
+func handlePoints(w http.ResponseWriter, r *http.Request) {
+	nick := clean(r.URL.Query().Get("nick"), maxNickLen)
+	if nick == "" {
+		writeJSON(w, 400, map[string]string{"error": "填一下昵称喵"})
+		return
+	}
+	pointsMu.Lock()
+	p := points[nick]
+	pointsMu.Unlock()
+	title, nextAt := titleFor(p)
+	writeJSON(w, 200, map[string]any{
+		"nick": nick, "points": p, "title": title, "nextAt": nextAt,
+	})
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -791,6 +949,8 @@ func main() {
 	loadStore()
 	loadWall()
 	loadStats()
+	loadComments()
+	loadPoints()
 
 	// 首次启动:写入默认店主密码哈希
 	if _, err := os.Stat(passFile); os.IsNotExist(err) {
@@ -804,6 +964,8 @@ func main() {
 	mux.HandleFunc("/api/wall", handleWall)
 	mux.HandleFunc("/api/wall/like", handleWallLike)
 	mux.HandleFunc("/api/hit", handleHit)
+	mux.HandleFunc("/api/comments", handleComments)
+	mux.HandleFunc("/api/points", handlePoints)
 	mux.HandleFunc("/api/content", handleContent)
 	mux.HandleFunc("/api/admin/login", handleLogin)
 	mux.HandleFunc("/api/admin/content", handlePutContent)

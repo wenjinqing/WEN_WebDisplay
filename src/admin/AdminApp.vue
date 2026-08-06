@@ -81,6 +81,20 @@ async function delWall(img) {
 // 新条目表单
 const newNotice = reactive({ date: new Date().toISOString().slice(0, 10), tag: '公告', text: '' })
 const newNovel = reactive({ title: '', desc: '', file: '', cup: '中杯 · 微糖', cat: '连载中' })
+const newChapter = reactive({ title: '', file: null })
+const expandedNovel = ref(-1)
+
+async function addChapter(n) {
+  if (!newChapter.title.trim() || !newChapter.file) return
+  try {
+    const fname = await uploadFile(newChapter.file, 'novel')
+    n.chapters = [...(n.chapters || []), { title: newChapter.title, file: fname }]
+    Object.assign(newChapter, { title: '', file: null })
+    showToast('章节已上传,记得点保存 ✅')
+  } catch (e) {
+    showToast(e.message)
+  }
+}
 const newArt = reactive({ title: '', note: '', file: null })
 
 const oldPass = ref('')
@@ -259,6 +273,14 @@ function showToast(text) {
         <label>作者名 <input v-model="c.author" /></label>
         <label>P站主页 <input v-model="c.authorPixiv" /></label>
         <label>首页标语 <input v-model="c.slogan" /></label>
+        <label>店主状态(显示在首页)
+          <select v-model="c.authorStatus">
+            <option>赶稿中 ✍️</option>
+            <option>摸鱼中 🐟</option>
+            <option>冬眠中 💤</option>
+            <option>爆更中 🔥</option>
+          </select>
+        </label>
         <label>粉丝群号 <input v-model="c.fanClub.qq" /></label>
         <label>
           作者简介(每行一段)
@@ -299,9 +321,28 @@ function showToast(text) {
             上传并加入菜单
           </button>
         </div>
-        <div v-for="(n, i) in c.novels" :key="i" class="row">
-          <span class="grow"><b>{{ n.title }}</b> · {{ n.file }}</span>
-          <button class="del" @click="c.novels.splice(i, 1)">下架</button>
+        <div v-for="(n, i) in c.novels" :key="i" class="novel-block">
+          <div class="row">
+            <span class="grow"><b>{{ n.title }}</b> · {{ n.file }}</span>
+            <button class="del" @click="expandedNovel = expandedNovel === i ? -1 : i">
+              {{ expandedNovel === i ? '收起' : `章节(${(n.chapters || []).length})` }}
+            </button>
+            <button class="del" @click="c.novels.splice(i, 1)">下架</button>
+          </div>
+          <div v-if="expandedNovel === i" class="chapter-box">
+            <div v-for="(ch, ci) in n.chapters || []" :key="ci" class="row">
+              <span class="grow">{{ ci + 1 }}. {{ ch.title }} · {{ ch.file }}</span>
+              <button class="del" @click="n.chapters.splice(ci, 1)">删除</button>
+            </div>
+            <div class="reply-row">
+              <input v-model="newChapter.title" placeholder="章节名(如:第一章 相遇)" />
+              <input type="file" accept=".txt,.md" @change="newChapter.file = $event.target.files[0]" />
+              <button class="btn btn-primary small" :disabled="!newChapter.file" @click="addChapter(n)">
+                加章节
+              </button>
+            </div>
+            <p class="hint-text">有章节的作品,阅读器会显示章节切换;没有章节则整本阅读</p>
+          </div>
         </div>
       </section>
 
@@ -635,6 +676,18 @@ time {
 
 .reply-row input {
   flex: 1;
+}
+
+.novel-block {
+  border-bottom: 1px dashed var(--pink-pale);
+  padding-bottom: 8px;
+}
+
+.chapter-box {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 4px 0 10px;
 }
 
 .toast {

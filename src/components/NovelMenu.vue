@@ -4,7 +4,7 @@ import PawPrint from './PawPrint.vue'
 import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 
-const emit = defineEmits(['read'])
+const emit = defineEmits(['read', 'comments'])
 
 const cats = ['全部', '连载中', '已完结', '番外']
 const activeCat = ref('全部')
@@ -38,11 +38,13 @@ const filtered = computed(() =>
               <h3 class="font-cute">{{ n.title }}</h3>
               <span class="cup">{{ n.cup }}</span>
               <span v-if="n.cat" class="cat-tag">{{ n.cat }}</span>
+              <span v-if="n.chapters && n.chapters.length" class="cup">共{{ n.chapters.length }}章</span>
             </div>
             <p class="desc">{{ n.desc }}</p>
           </div>
           <div class="item-actions">
             <button class="btn btn-ghost read" @click="emit('read', n)">在线阅读</button>
+            <button class="btn btn-ghost read" @click="emit('comments', n)">💬 评论</button>
             <a class="btn btn-primary download" :href="`/downloads/${n.file}`" download>
               <PawPrint :size="18" color="#fff" />
               下载

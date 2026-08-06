@@ -6,6 +6,14 @@ const props = defineProps({
 })
 const emit = defineEmits(['close'])
 
+// 有 chapters 就用章节列表,否则把整本当成单章
+const chapters = computed(() =>
+  props.novel.chapters && props.novel.chapters.length
+    ? props.novel.chapters
+    : [{ title: props.novel.title, file: props.novel.file }]
+)
+
+const chIdx = ref(0)
 const loading = ref(true)
 const error = ref('')
 const pages = ref([])
@@ -15,8 +23,8 @@ const contentEl = ref(null)
 
 const total = computed(() => pages.value.length)
 const currentParas = computed(() => pages.value[page.value] || [])
+const progressKey = computed(() => `read_${chapters.value[chIdx.value].file}`)
 
-// 按约 550 字一页切分,段落不拆开
 function paginate(text) {
   const paras = text.split(/\n+/).map((p) => p.trim()).filter(Boolean)
   const result = []
@@ -35,21 +43,28 @@ function paginate(text) {
   return result
 }
 
-onMounted(async () => {
-  document.body.style.overflow = 'hidden'
-  window.addEventListener('keydown', onKey)
+async function loadChapter() {
+  loading.value = true
+  error.value = ''
   try {
-    const res = await fetch(`/downloads/${props.novel.file}`)
+    const res = await fetch(`/downloads/${chapters.value[chIdx.value].file}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     pages.value = paginate(await res.text())
-    // 恢复上次的阅读进度
-    const saved = Number(localStorage.getItem(`read_${props.novel.file}`))
-    if (saved > 0 && saved < pages.value.length) page.value = saved
+    // 恢复该章节的阅读进度
+    const saved = Number(localStorage.getItem(progressKey.value))
+    page.value = saved > 0 && saved < pages.value.length ? saved : 0
   } catch (e) {
     error.value = '小说加载失败了,刷新一下再试试喵~'
+    pages.value = []
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  document.body.style.overflow = 'hidden'
+  window.addEventListener('keydown', onKey)
+  loadChapter()
 })
 
 onUnmounted(() => {
@@ -57,16 +72,22 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
 })
 
+watch(chIdx, loadChapter)
+
 watch(page, (p) => {
   contentEl.value?.scrollTo({ top: 0 })
-  localStorage.setItem(`read_${props.novel.file}`, String(p)) // 记住阅读进度
+  localStorage.setItem(progressKey.value, String(p))
 })
 
 function prev() {
   if (page.value > 0) page.value--
 }
 function next() {
-  if (page.value < total.value - 1) page.value++
+  if (page.value < total.value - 1) {
+    page.value++
+  } else if (chIdx.value < chapters.value.length - 1) {
+    chIdx.value++ // 本章读完自动进下一章
+  }
 }
 function onKey(e) {
   if (e.key === 'Escape') emit('close')
@@ -80,6 +101,9 @@ function onKey(e) {
     <div class="reader" role="dialog" :aria-label="novel.title">
       <header class="reader-head">
         <h3 class="font-cute">{{ novel.title }}</h3>
+        <select v-if="chapters.length > 1" v-model="chIdx" class="ch-select" aria-label="选择章节">
+          <option v-for="(ch, i) in chapters" :key="ch.file" :value="i">{{ ch.title }}</option>
+        </select>
         <button class="close" aria-label="关闭" @click="emit('close')">✕</button>
       </header>
 
@@ -88,13 +112,19 @@ function onKey(e) {
         <p v-else-if="error" class="state">{{ error }}</p>
         <template v-else>
           <p v-for="(para, i) in currentParas" :key="i" class="para">{{ para }}</p>
+          <p v-if="page === total - 1 && chIdx < chapters.length - 1" class="state next-hint">
+            — 本章完,点「下一页」进入下一章 —
+          </p>
+          <p v-else-if="page === total - 1" class="state next-hint">— 全书完,感谢阅读 —</p>
         </template>
       </div>
 
       <footer class="reader-foot">
         <button class="ctl" :disabled="page === 0" @click="prev">‹ 上一页</button>
         <span class="pageinfo">{{ total ? `${page + 1} / ${total}` : '' }}</span>
-        <button class="ctl" :disabled="page >= total - 1" @click="next">下一页 ›</button>
+        <button class="ctl" :disabled="page >= total - 1 && chIdx >= chapters.length - 1" @click="next">
+          下一页 ›
+        </button>
         <span class="sep" />
         <button class="ctl small" :disabled="fontSize <= 14" @click="fontSize -= 1">A-</button>
         <button class="ctl small" :disabled="fontSize >= 22" @click="fontSize += 1">A+</button>
@@ -119,7 +149,7 @@ function onKey(e) {
 .reader {
   width: min(720px, 100%);
   height: min(86vh, 900px);
-  background: #fff9f4; /* 护眼粉纸 */
+  background: #fff9f4;
   border-radius: var(--radius);
   border: 2px solid var(--pink-soft);
   box-shadow: 0 24px 64px rgba(91, 58, 71, 0.3);
@@ -144,6 +174,20 @@ function onKey(e) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.ch-select {
+  border: 2px solid var(--pink-pale);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  color: var(--pink-deep);
+  background: #fff;
+  outline: none;
+  max-width: 180px;
+  flex-shrink: 0;
 }
 
 .close {
@@ -181,6 +225,11 @@ function onKey(e) {
   color: var(--muted);
   margin-top: 40px;
   text-indent: 0;
+}
+
+.next-hint {
+  margin-top: 24px;
+  font-size: 0.85em;
 }
 
 .reader-foot {
