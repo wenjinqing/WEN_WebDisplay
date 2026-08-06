@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import SectionTitle from './SectionTitle.vue'
 import PigmiFace from './PigmiFace.vue'
+import PawPrint from './PawPrint.vue'
 
 const posts = ref([])
 const nick = ref('')
@@ -12,6 +13,14 @@ const sending = ref(false)
 const msg = ref('')
 const msgOk = ref(false)
 
+// 本机已点过赞的明信片(localStorage 记录,防重复点)
+const liked = ref(new Set(JSON.parse(localStorage.getItem('catcafe_likes') || '[]')))
+
+// 点赞多的排前面,同数按时间新→旧(文件名前缀是时间戳)
+const sorted = computed(() =>
+  [...posts.value].sort((a, b) => (b.likes || 0) - (a.likes || 0) || b.img.localeCompare(a.img))
+)
+
 onMounted(load)
 
 async function load() {
@@ -20,6 +29,27 @@ async function load() {
     posts.value = await res.json()
   } catch {
     /* 静默降级 */
+  }
+}
+
+async function like(p) {
+  if (liked.value.has(p.img)) return showMsg('这张你已经拍过爪啦 🐾', false)
+  try {
+    const res = await fetch('/api/wall/like', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ img: p.img }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      p.likes = data.likes
+      liked.value.add(p.img)
+      localStorage.setItem('catcafe_likes', JSON.stringify([...liked.value]))
+    } else {
+      showMsg(data.error || '点赞失败', false)
+    }
+  } catch {
+    showMsg('网络打了个盹,稍后再试', false)
   }
 }
 
@@ -76,17 +106,26 @@ function showMsg(text, ok) {
         </div>
       </div>
 
-      <!-- 明信片网格 -->
+      <!-- 明信片网格:按点赞数排序 -->
       <div v-if="posts.length" class="wall-grid" v-reveal>
-        <figure v-for="(p, i) in posts" :key="p.img" class="postcard" :class="`tilt-${i % 3}`">
+        <figure v-for="(p, i) in sorted" :key="p.img" class="postcard" :class="`tilt-${i % 3}`">
           <div class="photo">
             <img :src="`/wall/${p.img}`" :alt="p.nick + '的明信片'" loading="lazy" />
+            <span v-if="i === 0 && p.likes > 0" class="crown font-cute">👑 人气王</span>
           </div>
           <figcaption>
             <p v-if="p.note" class="note">{{ p.note }}</p>
             <div class="who">
               <b>{{ p.nick }}</b>
-              <time>{{ p.time }}</time>
+              <button
+                class="like-btn"
+                :class="{ liked: liked.has(p.img) }"
+                :aria-label="`给${p.nick}的明信片点赞`"
+                @click="like(p)"
+              >
+                <PawPrint :size="16" :color="liked.has(p.img) ? '#fff' : '#e85d7f'" />
+                {{ p.likes || 0 }}
+              </button>
             </div>
           </figcaption>
         </figure>
@@ -205,7 +244,7 @@ function showMsg(text, ok) {
 .who {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
 
@@ -214,9 +253,45 @@ function showMsg(text, ok) {
   font-size: 0.85rem;
 }
 
-.who time {
-  color: var(--muted);
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 2px solid var(--pink-soft);
+  background: #fff;
+  color: var(--pink-deep);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.like-btn:hover {
+  transform: scale(1.08);
+}
+
+.like-btn.liked {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+  cursor: default;
+}
+
+.photo {
+  position: relative;
+}
+
+.crown {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--pink-deep);
   font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 2px 10px;
+  box-shadow: 0 2px 8px rgba(233, 93, 127, 0.25);
 }
 
 .empty-wall {
