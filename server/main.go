@@ -81,6 +81,7 @@ var (
 	rateMu   sync.Mutex
 	lastPost = map[string]time.Time{}
 	lastWall = map[string]time.Time{} // 明信片墙单独限流(60秒/次)
+	likedBy  = map[string]bool{}      // 点赞记录:"ip|img"(重启后清零,可接受)
 	tokenMu  sync.Mutex
 	tokens   = map[string]time.Time{} // token → 过期时间
 	wallMu   sync.Mutex
@@ -88,10 +89,11 @@ var (
 )
 
 type WallPost struct {
-	Img  string `json:"img"`
-	Nick string `json:"nick"`
-	Note string `json:"note"`
-	Time string `json:"time"`
+	Img   string `json:"img"`
+	Nick  string `json:"nick"`
+	Note  string `json:"note"`
+	Time  string `json:"time"`
+	Likes int    `json:"likes"`
 }
 
 func loadWall() {
@@ -552,6 +554,55 @@ func handleWall(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// POST /api/wall/like {img} — 给明信片点赞(同一 IP 对同一张只能点一次)
+func handleWallLike(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Img string `json:"img"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
+		strings.Contains(req.Img, "/") || strings.Contains(req.Img, "..") {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	key := clientIP(r) + "|" + req.Img
+	rateMu.Lock()
+	if likedBy[key] {
+		rateMu.Unlock()
+		writeJSON(w, 429, map[string]string{"error": "这张你已经拍过爪啦"})
+		return
+	}
+	rateMu.Unlock()
+
+	wallMu.Lock()
+	found := false
+	likes := 0
+	for i := range wall {
+		if wall[i].Img == req.Img {
+			wall[i].Likes++
+			likes = wall[i].Likes
+			found = true
+			break
+		}
+	}
+	if found {
+		saveWall()
+	}
+	wallMu.Unlock()
+	if !found {
+		writeJSON(w, 404, map[string]string{"error": "明信片不存在"})
+		return
+	}
+
+	rateMu.Lock()
+	likedBy[key] = true
+	rateMu.Unlock()
+	writeJSON(w, 200, map[string]int{"likes": likes})
+}
+
 // POST /api/admin/wall/delete {img} — 店主撤下明信片
 func handleWallDelete(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
@@ -603,6 +654,7 @@ func main() {
 	mux.HandleFunc("/api/messages", handleMessages)
 	mux.HandleFunc("/api/urge", handleUrge)
 	mux.HandleFunc("/api/wall", handleWall)
+	mux.HandleFunc("/api/wall/like", handleWallLike)
 	mux.HandleFunc("/api/content", handleContent)
 	mux.HandleFunc("/api/admin/login", handleLogin)
 	mux.HandleFunc("/api/admin/content", handlePutContent)
