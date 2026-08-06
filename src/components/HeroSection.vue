@@ -1,9 +1,19 @@
 <script setup>
+import { computed } from 'vue'
 import CatFace from './CatFace.vue'
 import PigmiFace from './PigmiFace.vue'
 import PawPrint from './PawPrint.vue'
 import HandDoodle from './HandDoodle.vue'
 import { site } from '../data.js'
+
+// 季节限定装饰:冬雪/春樱/夏瓜/秋叶
+const seasonal = computed(() => {
+  const m = new Date().getMonth() + 1
+  if (m === 12 || m <= 2) return '❄️'
+  if (m <= 5) return '🌸'
+  if (m <= 8) return '🍉'
+  return '🍂'
+})
 </script>
 
 <template>
@@ -19,6 +29,8 @@ import { site } from '../data.js'
       <HandDoodle kind="star" :size="26" class="paw d3" />
       <HandDoodle kind="star" :size="18" class="paw d4" />
       <HandDoodle kind="heart" :size="30" class="paw d5" />
+      <span class="paw seasonal s1" aria-hidden="true">{{ seasonal }}</span>
+      <span class="paw seasonal s2" aria-hidden="true">{{ seasonal }}</span>
     </div>
 
     <div class="container hero-inner">
@@ -141,6 +153,15 @@ h1 {
 .d3 { top: 20%; right: 10%; animation: drift 7s ease-in-out 0.5s infinite; }
 .d4 { top: 46%; left: 28%; animation: drift 8s ease-in-out 2s infinite; }
 .d5 { bottom: 24%; right: 32%; animation: drift 10s ease-in-out 1s infinite; }
+
+.seasonal {
+  position: absolute;
+  font-size: 26px;
+  opacity: 0.75;
+}
+
+.s1 { top: 30%; left: 14%; animation: drift 8s ease-in-out 0.8s infinite; }
+.s2 { top: 8%; right: 42%; font-size: 20px; animation: drift 12s ease-in-out 2.2s infinite; }
 
 @keyframes drift {
   0%, 100% { transform: translateY(0) rotate(0deg); }

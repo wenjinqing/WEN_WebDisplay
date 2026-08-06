@@ -18,10 +18,47 @@ const tabs = [
   { key: 'novels', label: '小说上架' },
   { key: 'gallery', label: '插画管理' },
   { key: 'wall', label: '明信片管理' },
+  { key: 'msgs', label: '留言管理' },
   { key: 'account', label: '修改密码' },
 ]
 
 const wallPosts = ref([])
+const msgs = ref([])
+const replyText = reactive({})
+
+async function loadMsgs() {
+  const res = await fetch('/api/messages')
+  msgs.value = await res.json()
+}
+
+async function delMsg(m) {
+  const res = await fetch('/api/admin/messages/delete', {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ time: m.time, nick: m.nick }),
+  })
+  if (res.status === 401) return logout()
+  if (res.ok) {
+    msgs.value = msgs.value.filter((x) => !(x.time === m.time && x.nick === m.nick))
+    showToast('留言已删除 ✅')
+  }
+}
+
+async function replyMsg(m) {
+  const text = (replyText[m.time] || '').trim()
+  if (!text) return
+  const res = await fetch('/api/admin/messages/reply', {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ time: m.time, nick: m.nick, reply: text }),
+  })
+  if (res.status === 401) return logout()
+  if (res.ok) {
+    m.reply = text
+    replyText[m.time] = ''
+    showToast('回复成功 ✅')
+  }
+}
 
 async function loadWall() {
   const res = await fetch('/api/wall')
@@ -43,7 +80,7 @@ async function delWall(img) {
 
 // 新条目表单
 const newNotice = reactive({ date: new Date().toISOString().slice(0, 10), tag: '公告', text: '' })
-const newNovel = reactive({ title: '', desc: '', file: '', cup: '中杯 · 微糖' })
+const newNovel = reactive({ title: '', desc: '', file: '', cup: '中杯 · 微糖', cat: '连载中' })
 const newArt = reactive({ title: '', note: '', file: null })
 
 const oldPass = ref('')
@@ -87,6 +124,7 @@ async function loadContent() {
   const res = await fetch('/api/content')
   Object.assign(c, await res.json())
   loadWall()
+  loadMsgs()
   loaded.value = true
 }
 
@@ -131,8 +169,8 @@ async function addNovel() {
   if (!newNovel.title.trim() || !newNovel.file) return
   try {
     const fname = await uploadFile(newNovel.file, 'novel')
-    c.novels = [...(c.novels || []), { title: newNovel.title, desc: newNovel.desc, cup: newNovel.cup, file: fname }]
-    Object.assign(newNovel, { title: '', desc: '', file: '', cup: '中杯 · 微糖' })
+    c.novels = [...(c.novels || []), { title: newNovel.title, desc: newNovel.desc, cup: newNovel.cup, cat: newNovel.cat, file: fname }]
+    Object.assign(newNovel, { title: '', desc: '', file: '', cup: '中杯 · 微糖', cat: '连载中' })
     showToast('小说文件已上传,记得点保存 ✅')
   } catch (e) {
     showToast(e.message)
@@ -253,6 +291,9 @@ function showToast(text) {
           <input v-model="newNovel.title" placeholder="作品标题" />
           <input v-model="newNovel.desc" placeholder="一句话简介" />
           <input v-model="newNovel.cup" placeholder="杯型标签(如:中杯·微糖)" />
+          <select v-model="newNovel.cat">
+            <option>连载中</option><option>已完结</option><option>番外</option>
+          </select>
           <input type="file" accept=".txt,.md" @change="newNovel.file = $event.target.files[0]" />
           <button class="btn btn-primary small" :disabled="!newNovel.file" @click="addNovel">
             上传并加入菜单
@@ -297,6 +338,24 @@ function showToast(text) {
         </div>
       </section>
 
+      <!-- 留言管理 -->
+      <section v-else-if="tab === 'msgs'" class="tab-body">
+        <p class="hint-text">猪咪们的留言,可以回复或删除</p>
+        <div v-if="!msgs.length" class="hint-text">还没有留言~</div>
+        <div v-for="m in msgs" :key="m.time + m.nick" class="msg-row">
+          <div class="msg-main">
+            <div class="msg-meta"><b>{{ m.nick }}</b><time>{{ m.time }}</time></div>
+            <p>{{ m.content }}</p>
+            <p v-if="m.reply" class="has-reply">🐾 已回复:{{ m.reply }}</p>
+            <div class="reply-row">
+              <input v-model="replyText[m.time]" :placeholder="m.reply ? '修改回复…' : '回复这条留言…'" />
+              <button class="btn btn-primary small" @click="replyMsg(m)">回复</button>
+              <button class="del" @click="delMsg(m)">删除</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- 修改密码 -->
       <section v-else class="tab-body">
         <label>原密码 <input v-model="oldPass" type="password" /></label>
@@ -304,7 +363,7 @@ function showToast(text) {
         <button class="btn btn-primary" @click="changePass">更新密码</button>
       </section>
 
-      <footer v-if="tab !== 'account' && tab !== 'wall'" class="panel-foot">
+      <footer v-if="tab !== 'account' && tab !== 'wall' && tab !== 'msgs'" class="panel-foot">
         <button class="btn btn-primary" :disabled="saving" @click="save">
           {{ saving ? '保存中…' : '💾 保存全部修改' }}
         </button>
@@ -538,6 +597,44 @@ time {
 .hint-text {
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.msg-row {
+  border: 1px solid var(--pink-pale);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.msg-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.msg-meta b {
+  color: var(--pink-deep);
+  font-size: 0.9rem;
+}
+
+.msg-main > p {
+  font-size: 0.92rem;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.has-reply {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.reply-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reply-row input {
+  flex: 1;
 }
 
 .toast {

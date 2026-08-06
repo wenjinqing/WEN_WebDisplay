@@ -41,18 +41,21 @@ export const site = reactive({
       desc: '示例小样:打工的女仆咖啡厅里,猫耳发箍是绝对不能碰的禁忌……除非是你。',
       file: 'sample-novel-1.txt',
       cup: '中杯 · 微糖',
+      cat: '已完结',
     },
     {
       title: '示例作品 · 前辈的体温是37.2℃',
       desc: '示例小样:感冒的前辈、37.2℃的体温计,和一句没敢说出口的"我照顾你"。',
       file: 'sample-novel-2.txt',
       cup: '大杯 · 半糖',
+      cat: '连载中',
     },
     {
       title: '示例作品 · 月色与她的指尖',
       desc: '示例小样:打烊后的居酒屋,两杯温热的清酒,和比月色更温柔的眼神。',
       file: 'sample-novel-3.txt',
       cup: '特大杯 · 全糖',
+      cat: '番外',
     },
   ],
   // 插画墙 —— 图片放到服务器 /var/www/catcafe/gallery/ 目录,img 填文件名;

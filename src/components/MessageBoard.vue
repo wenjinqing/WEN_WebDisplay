@@ -76,6 +76,9 @@ async function submit() {
           <time>{{ m.time }}</time>
         </div>
         <p>{{ m.content }}</p>
+        <div v-if="m.reply" class="reply">
+          <b>🐾 店主回复:</b>{{ m.reply }}
+        </div>
       </li>
       <li v-if="loaded && !messages.length" class="empty">墙上还空空的,来贴第一张便利贴喵~</li>
     </ul>
@@ -185,6 +188,21 @@ textarea:focus {
   line-height: 1.7;
   word-break: break-word;
   white-space: pre-wrap;
+}
+
+.reply {
+  margin-top: 8px;
+  background: var(--pink-pale);
+  border-left: 3px solid var(--pink);
+  border-radius: 0 10px 10px 0;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.reply b {
+  color: var(--pink-deep);
+  margin-right: 4px;
 }
 
 .empty {
