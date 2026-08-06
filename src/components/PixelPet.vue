@@ -1,58 +1,111 @@
 <script setup>
-// 爱丽丝看板娘:像素小人在页面底部生活
-// 行为:散步 / 休息 / 睡觉 / 追鼠标 / 随机说话 / 点她有反应
-import { ref, onMounted, onUnmounted } from 'vue'
+// 爱丽丝看板娘 + 猪咪跟屁虫
+// 猫:散步 / 休息 / 睡觉 / 追鼠标 / 说话
+// 猪:追着猫跑(落后会加速追) / 偶尔撒欢乱跑 / 也会说话
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 
-const x = ref(15) // 位置(vw)
-const dir = ref(1) // 朝向:1 右 -1 左
-const state = ref('walk') // walk | idle | sleep
-const bubble = ref('')
 const hidden = ref(localStorage.getItem('catcafe_pet_hide') === '1')
 
-const BUBBLES = [
+const cat = reactive({ x: 15, dir: 1, state: 'walk', bubble: '' })
+const pig = reactive({ x: 8, dir: 1, state: 'walk', mode: 'follow', bubble: '' })
+// pig.mode: follow 追猫 | sprint 撒欢乱跑 | idle 休息
+
+const CAT_SAYS = [
   '赶稿中……', '想喝奶茶', '猪咪们好呀~', '在写新坑!',
   '今天也要加油喵', '催更?在写了在写了', '逛逛自己的店',
   '刚才那句写得不错', '想吃草莓蛋糕', '被发现了?',
 ]
+const PIG_SAYS = [
+  '等等我!', '猪咪来咯~', '拱拱', '今天也很乖',
+  '猫猫酱慢点!', '哼唧哼唧', '贴贴!',
+]
+const CAT_POKED = ['喵?叫我?', '在呢在呢!', '怎么啦~', '摸我就不用赶稿了?']
+const PIG_POKED = ['哼唧!', '拱你一下!', '猪咪超乖的!', '干嘛啦~']
 
 let tick = null
 let stateTimer = null
 let bubbleTimer = null
 let mouseX = 50
-let bubbleClear = null
+const clears = { cat: null, pig: null }
+
+function say(who, text, ms = 3000) {
+  who.bubble = text
+  clearTimeout(clears[who === cat ? 'cat' : 'pig'])
+  clears[who === cat ? 'cat' : 'pig'] = setTimeout(() => (who.bubble = ''), ms)
+}
 
 function step() {
-  if (hidden.value || state.value !== 'walk') return
-  x.value += dir.value * 0.32
-  if (x.value >= 90) { x.value = 90; dir.value = -1 }
-  if (x.value <= 1) { x.value = 1; dir.value = 1 }
+  if (hidden.value) return
+  // ===== 猫移动 =====
+  if (cat.state === 'walk') {
+    cat.x += cat.dir * 0.3
+    if (cat.x >= 90) { cat.x = 90; cat.dir = -1 }
+    if (cat.x <= 1) { cat.x = 1; cat.dir = 1 }
+  }
+  // ===== 猪移动 =====
+  if (pig.mode === 'follow') {
+    const target = cat.x - cat.dir * 7 // 跟在猫身后 7vw
+    const dist = target - pig.x
+    if (Math.abs(dist) > 1) {
+      pig.dir = dist > 0 ? 1 : -1
+      // 落后越多跑得越急,追上立刻减速
+      const speed = Math.abs(dist) > 18 ? 0.5 : 0.24
+      pig.x += pig.dir * Math.min(speed, Math.abs(dist))
+      pig.state = 'walk'
+    } else if (cat.state !== 'walk') {
+      pig.state = 'idle' // 猫停猪也停
+    }
+  } else if (pig.mode === 'sprint') {
+    pig.x += pig.dir * 0.55
+    pig.state = 'walk'
+    if (pig.x >= 92) { pig.x = 92; pig.dir = -1 }
+    if (pig.x <= 1) { pig.x = 1; pig.dir = 1 }
+  }
+  pig.x = Math.max(1, Math.min(92, pig.x))
 }
 
 function maybeChange() {
   if (hidden.value) return
   const r = Math.random()
-  if (state.value === 'walk') {
-    if (r < 0.22) state.value = 'idle'
-    else if (r < 0.32) state.value = 'sleep'
-    else if (r < 0.6) dir.value = mouseX > x.value ? 1 : -1 // 追鼠标方向
+  // ===== 猫的状态 =====
+  if (cat.state === 'walk') {
+    if (r < 0.2) cat.state = 'idle'
+    else if (r < 0.28) cat.state = 'sleep'
+    else if (r < 0.55) cat.dir = mouseX > cat.x ? 1 : -1
   } else if (r < 0.65) {
-    state.value = 'walk'
+    cat.state = 'walk'
+  }
+  // ===== 猪的模式:主要追猫,偶尔撒欢 =====
+  const r2 = Math.random()
+  if (pig.mode === 'follow' && r2 < 0.14) {
+    pig.mode = 'sprint'
+    pig.dir = Math.random() < 0.5 ? 1 : -1
+    say(pig, '撒欢啦——!', 2000)
+    setTimeout(() => (pig.mode = 'follow'), 2500 + Math.random() * 2500)
+  } else if (pig.mode === 'follow' && r2 < 0.22) {
+    pig.state = pig.state === 'idle' ? 'walk' : 'idle'
   }
 }
 
 function maybeBubble() {
-  if (hidden.value || Math.random() > 0.55) return
-  bubble.value = BUBBLES[Math.floor(Math.random() * BUBBLES.length)]
-  clearTimeout(bubbleClear)
-  bubbleClear = setTimeout(() => (bubble.value = ''), 3200)
+  if (hidden.value) return
+  const r = Math.random()
+  if (r < 0.3) say(cat, CAT_SAYS[Math.floor(Math.random() * CAT_SAYS.length)], 3200)
+  else if (r < 0.5) say(pig, PIG_SAYS[Math.floor(Math.random() * PIG_SAYS.length)], 2800)
 }
 
-function poke() {
-  bubble.value = ['喵?叫我?', '在呢在呢!', '怎么啦~', '摸我就不用赶稿了?'][Math.floor(Math.random() * 4)]
-  clearTimeout(bubbleClear)
-  bubbleClear = setTimeout(() => (bubble.value = ''), 2500)
-  state.value = 'idle'
-  setTimeout(() => (state.value = 'walk'), 2000)
+function pokeCat() {
+  say(cat, CAT_POKED[Math.floor(Math.random() * CAT_POKED.length)], 2500)
+  cat.state = 'idle'
+  setTimeout(() => (cat.state = 'walk'), 2000)
+}
+
+function pokePig() {
+  say(pig, PIG_POKED[Math.floor(Math.random() * PIG_POKED.length)], 2200)
+  // 被点了会吓得跑开一小段
+  pig.mode = 'sprint'
+  pig.dir = pig.x > cat.x ? 1 : -1
+  setTimeout(() => (pig.mode = 'follow'), 1500)
 }
 
 function hide() {
@@ -65,46 +118,53 @@ function show() {
   localStorage.removeItem('catcafe_pet_hide')
 }
 
+function onMouse(e) {
+  mouseX = (e.clientX / window.innerWidth) * 100
+}
+
 onMounted(() => {
   window.addEventListener('mousemove', onMouse, { passive: true })
   tick = setInterval(step, 60)
   stateTimer = setInterval(maybeChange, 4000)
-  bubbleTimer = setInterval(maybeBubble, 9000)
+  bubbleTimer = setInterval(maybeBubble, 8000)
 })
-
-function onMouse(e) {
-  mouseX = (e.clientX / window.innerWidth) * 100
-}
 
 onUnmounted(() => {
   window.removeEventListener('mousemove', onMouse)
   clearInterval(tick)
   clearInterval(stateTimer)
   clearInterval(bubbleTimer)
-  clearTimeout(bubbleClear)
+  clearTimeout(clears.cat)
+  clearTimeout(clears.pig)
 })
 </script>
 
 <template>
   <button v-if="hidden" class="pet-restore" aria-label="召回看板娘" @click="show">🐾</button>
 
-  <div v-else class="pet" :style="{ left: x + 'vw' }" :data-state="state">
-    <transition name="bub">
-      <span v-if="bubble" class="pet-bubble">{{ bubble }}</span>
-    </transition>
-    <button class="pet-hide" aria-label="让她去休息" @click="hide">×</button>
-    <span v-if="state === 'sleep'" class="zzz">💤</span>
-    <span class="flipper" :class="{ flip: dir < 0 }">
-      <img
-        src="/alice-pixel.png"
-        alt="爱丽丝看板娘"
-        class="pet-img"
-        :class="state"
-        draggable="false"
-        @click="poke"
-      />
-    </span>
-  </div>
+  <template v-else>
+    <!-- 爱丽丝 -->
+    <div class="pet" :style="{ left: cat.x + 'vw' }">
+      <transition name="bub">
+        <span v-if="cat.bubble" class="pet-bubble">{{ cat.bubble }}</span>
+      </transition>
+      <button class="pet-hide" aria-label="让她们去休息" @click="hide">×</button>
+      <span v-if="cat.state === 'sleep'" class="zzz">💤</span>
+      <span class="flipper" :class="{ flip: cat.dir < 0 }">
+        <img src="/alice-pixel.png" alt="爱丽丝看板娘" class="pet-img" :class="cat.state" draggable="false" @click="pokeCat" />
+      </span>
+    </div>
+
+    <!-- 猪咪跟屁虫 -->
+    <div class="pet pig" :style="{ left: pig.x + 'vw' }">
+      <transition name="bub">
+        <span v-if="pig.bubble" class="pet-bubble pig-bubble">{{ pig.bubble }}</span>
+      </transition>
+      <span class="flipper" :class="{ flip: pig.dir < 0 }">
+        <img src="/pigmi-pixel.png" alt="像素猪咪" class="pet-img pig-img" :class="pig.state" draggable="false" @click="pokePig" />
+      </span>
+    </div>
+  </template>
 </template>
 
 <style scoped>
@@ -132,9 +192,17 @@ onUnmounted(() => {
   user-select: none;
 }
 
+.pig-img {
+  width: 56px; /* 猪咪小一号,更像跟班 */
+}
+
 /* 散步:上下小跑 */
 .pet-img.walk {
   animation: walkBob 0.45s ease-in-out infinite;
+}
+
+.pig-img.walk {
+  animation-duration: 0.35s; /* 猪腿短,倒腾得更快 */
 }
 
 @keyframes walkBob {
@@ -186,6 +254,11 @@ onUnmounted(() => {
   box-shadow: var(--shadow);
 }
 
+.pig-bubble {
+  border-color: #c9d8f5;
+  border-radius: 14px 14px 4px 14px;
+}
+
 .bub-enter-active { transition: all 0.2s ease; }
 .bub-leave-active { transition: all 0.3s ease; }
 .bub-enter-from { opacity: 0; transform: translateX(-50%) translateY(6px); }
@@ -231,8 +304,11 @@ onUnmounted(() => {
   .pet-img {
     width: 58px;
   }
+  .pig-img {
+    width: 44px;
+  }
   .pet-hide {
-    opacity: 1; /* 手机没有 hover,常显 */
+    opacity: 1;
   }
 }
 
