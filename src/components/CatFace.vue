@@ -14,11 +14,12 @@ defineProps({
     <path d="M150 66 L158 40 L130 54 Z" fill="#ffc2d4" />
     <!-- 头 -->
     <circle cx="100" cy="118" r="62" fill="#fff" stroke="#f9718f" stroke-width="5" />
-    <!-- 左眼(圆) -->
-    <circle cx="76" cy="112" r="7" fill="#5b3a47" />
-    <circle cx="78" cy="110" r="2.5" fill="#fff" />
+    <!-- 左眼(圆,大一号更萌) -->
+    <circle cx="74" cy="112" r="9" fill="#5b3a47" />
+    <circle cx="77" cy="109" r="3" fill="#fff" />
+    <circle cx="71.5" cy="114.5" r="1.5" fill="#fff" opacity="0.8" />
     <!-- 右眼(wink) -->
-    <path d="M114 112 Q124 104 134 112" fill="none" stroke="#5b3a47" stroke-width="5" stroke-linecap="round" />
+    <path d="M114 112 Q125 102 136 112" fill="none" stroke="#5b3a47" stroke-width="5" stroke-linecap="round" />
     <!-- 腮红 -->
     <ellipse cx="64" cy="132" rx="10" ry="6" fill="#ffc2d4" opacity="0.9" />
     <ellipse cx="136" cy="132" rx="10" ry="6" fill="#ffc2d4" opacity="0.9" />

@@ -1,6 +1,8 @@
 <script setup>
 import PawPrint from './PawPrint.vue'
 import { site } from '../data.js'
+
+const emit = defineEmits(['read'])
 </script>
 
 <template>
@@ -20,10 +22,13 @@ import { site } from '../data.js'
             </div>
             <p class="desc">{{ n.desc }}</p>
           </div>
-          <a class="btn btn-primary download" :href="`/downloads/${n.file}`" download>
-            <PawPrint :size="18" color="#fff" />
-            下载
-          </a>
+          <div class="item-actions">
+            <button class="btn btn-ghost read" @click="emit('read', n)">在线阅读</button>
+            <a class="btn btn-primary download" :href="`/downloads/${n.file}`" download>
+              <PawPrint :size="18" color="#fff" />
+              下载
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -102,8 +107,14 @@ h3 {
   margin-top: 6px;
 }
 
-.download {
+.item-actions {
+  display: flex;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.read {
+  padding: 12px 20px;
 }
 
 @media (max-width: 720px) {
@@ -115,8 +126,11 @@ h3 {
     align-items: flex-start;
     gap: 14px;
   }
-  .download {
+  .item-actions {
     align-self: stretch;
+  }
+  .item-actions .btn {
+    flex: 1;
     justify-content: center;
   }
 }
