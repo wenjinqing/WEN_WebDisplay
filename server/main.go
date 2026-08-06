@@ -23,8 +23,10 @@ const (
 	dataFile    = "/var/lib/catcafe/data.json"    // 留言/催更数据
 	contentFile = "/var/lib/catcafe/content.json" // 站点内容
 	passFile    = "/var/lib/catcafe/admin.hash"   // 店主密码哈希
+	wallFile    = "/var/lib/catcafe/wall.json"    // 明信片墙数据
 	galleryDir  = "/var/www/catcafe/gallery"      // 插画目录
 	novelDir    = "/var/www/downloads"            // 小说目录
+	wallDir     = "/var/www/catcafe/wall"         // 明信片图片目录
 
 	maxMessages = 200
 	maxUrges    = 50
@@ -78,9 +80,34 @@ var (
 	store    Store
 	rateMu   sync.Mutex
 	lastPost = map[string]time.Time{}
+	lastWall = map[string]time.Time{} // 明信片墙单独限流(60秒/次)
 	tokenMu  sync.Mutex
 	tokens   = map[string]time.Time{} // token → 过期时间
+	wallMu   sync.Mutex
+	wall     []WallPost
 )
+
+type WallPost struct {
+	Img  string `json:"img"`
+	Nick string `json:"nick"`
+	Note string `json:"note"`
+	Time string `json:"time"`
+}
+
+func loadWall() {
+	data, err := os.ReadFile(wallFile)
+	if err == nil {
+		json.Unmarshal(data, &wall)
+	}
+}
+
+func saveWall() {
+	data, _ := json.MarshalIndent(wall, "", "  ")
+	tmp := wallFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err == nil {
+		os.Rename(tmp, wallFile)
+	}
+}
 
 // ---------- 工具 ----------
 
@@ -444,15 +471,127 @@ func handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "deleted"})
 }
 
+// ---------- 明信片墙 ----------
+
+// GET /api/wall — 拉取明信片列表
+// POST /api/wall — 群友寄明信片(multipart: file + nick + note)
+func handleWall(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		wallMu.Lock()
+		defer wallMu.Unlock()
+		if wall == nil {
+			wall = []WallPost{}
+		}
+		writeJSON(w, 200, wall)
+	case http.MethodPost:
+		ip := clientIP(r)
+		rateMu.Lock()
+		if t, ok := lastWall[ip]; ok && time.Since(t) < 60*time.Second {
+			rateMu.Unlock()
+			writeJSON(w, 429, map[string]string{"error": "明信片一分钟只能寄一张哦"})
+			return
+		}
+		rateMu.Unlock()
+
+		r.Body = http.MaxBytesReader(w, r.Body, 6<<20) // 约5MB上限
+		if err := r.ParseMultipartForm(6 << 20); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "图片太大了(上限5MB)"})
+			return
+		}
+		f, header, err := r.FormFile("file")
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": "别忘了选一张图片喵"})
+			return
+		}
+		defer f.Close()
+
+		ext := strings.ToLower(filepath.Ext(header.Filename))
+		if !allowExt["gallery"][ext] {
+			writeJSON(w, 400, map[string]string{"error": "只支持 jpg/png/gif/webp 图片"})
+			return
+		}
+		name := fmt.Sprintf("%d-%s", time.Now().Unix(), safeName(header.Filename))
+		dst, err := os.Create(filepath.Join(wallDir, name))
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": "服务器保存失败"})
+			return
+		}
+		io.Copy(dst, f)
+		dst.Close()
+
+		nick := clean(r.FormValue("nick"), maxNickLen)
+		if nick == "" {
+			nick = "匿名猪咪"
+		}
+		post := WallPost{
+			Img:  name,
+			Nick: nick,
+			Note: clean(r.FormValue("note"), 60),
+			Time: time.Now().Format("2006-01-02 15:04"),
+		}
+		wallMu.Lock()
+		wall = append([]WallPost{post}, wall...)
+		if len(wall) > 30 {
+			for _, old := range wall[30:] { // 删掉最老的图文件
+				os.Remove(filepath.Join(wallDir, old.Img))
+			}
+			wall = wall[:30]
+		}
+		saveWall()
+		wallMu.Unlock()
+
+		rateMu.Lock()
+		lastWall[ip] = time.Now()
+		rateMu.Unlock()
+
+		log.Printf("新明信片: %s 寄出了 %s", nick, name)
+		writeJSON(w, 200, post)
+	default:
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+	}
+}
+
+// POST /api/admin/wall/delete {img} — 店主撤下明信片
+func handleWallDelete(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Img string `json:"img"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
+		strings.Contains(req.Img, "/") || strings.Contains(req.Img, "..") {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	wallMu.Lock()
+	for i, p := range wall {
+		if p.Img == req.Img {
+			wall = append(wall[:i], wall[i+1:]...)
+			break
+		}
+	}
+	saveWall()
+	wallMu.Unlock()
+	os.Remove(filepath.Join(wallDir, req.Img))
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
 // ---------- 启动 ----------
 
 func main() {
-	for _, d := range []string{"/var/lib/catcafe", galleryDir, novelDir} {
+	for _, d := range []string{"/var/lib/catcafe", galleryDir, novelDir, wallDir} {
 		if err := os.MkdirAll(d, 0755); err != nil {
 			log.Fatal(err)
 		}
 	}
 	loadStore()
+	loadWall()
 
 	// 首次启动:写入默认店主密码哈希
 	if _, err := os.Stat(passFile); os.IsNotExist(err) {
@@ -463,12 +602,14 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/messages", handleMessages)
 	mux.HandleFunc("/api/urge", handleUrge)
+	mux.HandleFunc("/api/wall", handleWall)
 	mux.HandleFunc("/api/content", handleContent)
 	mux.HandleFunc("/api/admin/login", handleLogin)
 	mux.HandleFunc("/api/admin/content", handlePutContent)
 	mux.HandleFunc("/api/admin/password", handleChangePass)
 	mux.HandleFunc("/api/admin/upload", handleUpload)
 	mux.HandleFunc("/api/admin/delete-file", handleDeleteFile)
+	mux.HandleFunc("/api/admin/wall/delete", handleWallDelete)
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]string{"status": "ok"})
 	})
