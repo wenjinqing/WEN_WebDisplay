@@ -8,11 +8,11 @@ defineProps({
 <template>
   <svg :width="size" :height="size" viewBox="0 0 200 200" aria-hidden="true">
     <g stroke-linecap="round" stroke-linejoin="round">
-      <!-- 小圆耳:贴着头顶的短短小三角(Pusheen 比例) -->
-      <path d="M48 100 Q 44 68 62 64 Q 80 60 84 86 Z" fill="#fff" stroke="#f9718f" stroke-width="5" />
-      <path d="M152 100 Q 156 68 138 64 Q 120 60 116 86 Z" fill="#fff" stroke="#f9718f" stroke-width="5" />
-      <path d="M56 92 Q 55 74 64 72 Q 74 70 76 84 Z" fill="#ffc2d4" />
-      <path d="M144 92 Q 145 74 136 72 Q 126 70 124 84 Z" fill="#ffc2d4" />
+      <!-- 小圆耳带一点尖:短而微翘(Pusheen 比例 + 小尖角) -->
+      <path d="M46 102 Q 50 66 66 58 Q 82 64 84 90 Z" fill="#fff" stroke="#f9718f" stroke-width="5" />
+      <path d="M154 102 Q 150 66 134 58 Q 118 64 116 90 Z" fill="#fff" stroke="#f9718f" stroke-width="5" />
+      <path d="M56 94 Q 59 74 67 68 Q 76 74 76 86 Z" fill="#ffc2d4" />
+      <path d="M144 94 Q 141 74 133 68 Q 124 74 124 86 Z" fill="#ffc2d4" />
 
       <!-- 圆脸蛋:横宽椭圆更幼态 -->
       <ellipse cx="100" cy="124" rx="66" ry="58" fill="#fff" stroke="#f9718f" stroke-width="5" />
