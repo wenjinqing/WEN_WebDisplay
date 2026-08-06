@@ -1,8 +1,11 @@
 // ============================================================
-// 站点内容配置 —— 改这里就能更新网页内容,不用动组件代码
+// 站点内容配置
+// 默认值写在这里;运行时优先从后端 /api/content 拉取最新内容,
+// 店主在 /admin 后台修改后,前台刷新即生效
 // ============================================================
+import { reactive } from 'vue'
 
-export const site = {
+export const site = reactive({
   title: '爱丽丝的小涩猫咖啡厅',
   author: '爱丽丝猫猫酱',
   authorPixiv: 'https://www.pixiv.net/users/16689973',
@@ -65,4 +68,12 @@ export const site = {
     desc: '店里常客都是可爱的猪咪。进来一起催更、吸猫、聊猫猫酱的新坑!',
     qq: 'QQ群号:1054390069',
   },
-}
+})
+
+// 从后端拉取店主更新过的内容,覆盖默认值(失败则用默认值,不影响浏览)
+fetch('/api/content')
+  .then((r) => (r.ok ? r.json() : null))
+  .then((data) => {
+    if (data && typeof data === 'object') Object.assign(site, data)
+  })
+  .catch(() => {})
