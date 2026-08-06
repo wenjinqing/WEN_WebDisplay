@@ -14,12 +14,17 @@ const links = [
   { href: '#wall', label: '明信片墙' },
   { href: '#pigmi', label: '猪咪聚集地' },
 ]
+
+// 彩蛋:快速点 logo 会触发猫爪雨(由 PawRain 组件监听)
+function onLogoClick() {
+  window.dispatchEvent(new CustomEvent('catcafe-logo-click'))
+}
 </script>
 
 <template>
   <header class="nav">
     <div class="container nav-inner">
-      <a href="#home" class="logo font-cute">
+      <a href="#home" class="logo font-cute" @click="onLogoClick">
         <PawPrint :size="26" color="#f9718f" />
         小涩猫咖啡厅
       </a>

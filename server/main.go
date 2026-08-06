@@ -750,6 +750,7 @@ type Stats struct {
 	Total      int    `json:"total"`
 	Today      string `json:"today"`
 	TodayCount int    `json:"todayCount"`
+	Pets       int    `json:"pets"` // 猫猫被撸次数
 }
 
 var (
@@ -938,6 +939,53 @@ func handlePoints(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GET /api/pet — 撸猫总数
+// POST /api/pet — 撸一下
+func handlePet(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		statsMu.Lock()
+		n := stats.Pets
+		statsMu.Unlock()
+		writeJSON(w, 200, map[string]int{"pets": n})
+	case http.MethodPost:
+		// 娱乐计数器,允许快速点,开心就好
+		statsMu.Lock()
+		stats.Pets++
+		data, _ := json.Marshal(stats)
+		os.WriteFile(statsFile, data, 0644)
+		n := stats.Pets
+		statsMu.Unlock()
+		writeJSON(w, 200, map[string]int{"pets": n})
+	default:
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+	}
+}
+
+// ---------- 在线猪咪 ----------
+
+var (
+	onlineMu sync.Mutex
+	visitors = map[string]time.Time{}
+)
+
+// GET /api/online — 心跳+返回 90 秒内的活跃猪咪数
+func handleOnline(w http.ResponseWriter, r *http.Request) {
+	ip := clientIP(r)
+	onlineMu.Lock()
+	visitors[ip] = time.Now()
+	n := 0
+	for v, t := range visitors {
+		if time.Since(t) < 90*time.Second {
+			n++
+		} else {
+			delete(visitors, v) // 顺手清理
+		}
+	}
+	onlineMu.Unlock()
+	writeJSON(w, 200, map[string]int{"online": n})
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -964,6 +1012,8 @@ func main() {
 	mux.HandleFunc("/api/wall", handleWall)
 	mux.HandleFunc("/api/wall/like", handleWallLike)
 	mux.HandleFunc("/api/hit", handleHit)
+	mux.HandleFunc("/api/pet", handlePet)
+	mux.HandleFunc("/api/online", handleOnline)
 	mux.HandleFunc("/api/comments", handleComments)
 	mux.HandleFunc("/api/points", handlePoints)
 	mux.HandleFunc("/api/content", handleContent)

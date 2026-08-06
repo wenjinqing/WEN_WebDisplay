@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import CatFace from './CatFace.vue'
 import PigmiFace from './PigmiFace.vue'
 import PawPrint from './PawPrint.vue'
@@ -14,6 +14,43 @@ const seasonal = computed(() => {
   if (m <= 8) return '🍉'
   return '🍂'
 })
+
+// ===== 撸猫 =====
+const pets = ref(0)
+const meow = ref('')
+const hearts = ref([]) // 飘出的爱心 id 列表
+let heartSeq = 0
+let meowTimer = null
+
+const meows = ['喵!', '呼噜呼噜…', '再摸一下嘛~', '喵呜♪', '蹭蹭你', '尾巴翘起来了!']
+
+onMounted(async () => {
+  try {
+    const res = await fetch('/api/pet')
+    pets.value = (await res.json()).pets || 0
+  } catch {
+    /* 静默 */
+  }
+})
+
+async function petCat() {
+  // 随机猫叫气泡
+  meow.value = meows[Math.floor(Math.random() * meows.length)]
+  clearTimeout(meowTimer)
+  meowTimer = setTimeout(() => (meow.value = ''), 1500)
+  // 飘爱心
+  const id = ++heartSeq
+  hearts.value.push(id)
+  setTimeout(() => (hearts.value = hearts.value.filter((h) => h !== id)), 1200)
+  // 上报计数
+  pets.value++
+  try {
+    const res = await fetch('/api/pet', { method: 'POST' })
+    pets.value = (await res.json()).pets
+  } catch {
+    /* 本地计数即可 */
+  }
+}
 </script>
 
 <template>
@@ -54,8 +91,15 @@ const seasonal = computed(() => {
       </div>
 
       <div class="hero-mascots">
-        <CatFace :size="220" class="cat" />
+        <div class="cat-zone" role="button" tabindex="0" aria-label="撸猫" @click="petCat" @keyup.enter="petCat">
+          <transition name="meow-pop">
+            <span v-if="meow" class="meow-bubble font-cute">{{ meow }}</span>
+          </transition>
+          <span v-for="h in hearts" :key="h" class="fly-heart">💗</span>
+          <CatFace :size="220" class="cat" />
+        </div>
         <PigmiFace :size="110" class="pigmi" />
+        <p class="pet-count">🫳 猫猫已被撸 {{ pets }} 次,你也来一下?</p>
       </div>
     </div>
   </section>
@@ -133,6 +177,60 @@ h1 {
 .hero-mascots {
   position: relative;
   flex-shrink: 0;
+  text-align: center;
+}
+
+.cat-zone {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cat-zone:focus-visible {
+  outline: 3px solid var(--pink);
+  border-radius: 20px;
+}
+
+.meow-bubble {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 2px solid var(--pink-soft);
+  color: var(--pink-deep);
+  border-radius: 16px 16px 16px 4px;
+  padding: 4px 14px;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  z-index: 2;
+  box-shadow: var(--shadow);
+}
+
+.meow-pop-enter-active { transition: all 0.2s ease; }
+.meow-pop-leave-active { transition: all 0.4s ease; }
+.meow-pop-enter-from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.8); }
+.meow-pop-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+
+.fly-heart {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  font-size: 22px;
+  pointer-events: none;
+  animation: flyUp 1.2s ease-out forwards;
+}
+
+@keyframes flyUp {
+  0% { opacity: 1; transform: translate(-50%, 0) scale(0.6); }
+  100% { opacity: 0; transform: translate(-50%, -90px) scale(1.3); }
+}
+
+.pet-count {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 .cat {

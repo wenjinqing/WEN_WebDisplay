@@ -1,5 +1,6 @@
 <script setup>
 import SectionTitle from './SectionTitle.vue'
+import FortuneCard from './FortuneCard.vue'
 import { site } from '../data.js'
 
 const tagColor = {
@@ -24,6 +25,8 @@ const tagColor = {
           <p>{{ n.text }}</p>
         </div>
       </div>
+
+      <FortuneCard />
     </div>
   </section>
 </template>

@@ -13,6 +13,8 @@ import PigmiWall from './components/PigmiWall.vue'
 import PigmiClub from './components/PigmiClub.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import BackToTop from './components/BackToTop.vue'
+import DanmakuLayer from './components/DanmakuLayer.vue'
+import PawRain from './components/PawRain.vue'
 
 const readingNovel = ref(null)
 const commentingNovel = ref(null)
@@ -32,6 +34,8 @@ const commentingNovel = ref(null)
   </main>
   <SiteFooter />
   <BackToTop />
+  <DanmakuLayer />
+  <PawRain />
   <NovelReader v-if="readingNovel" :novel="readingNovel" @close="readingNovel = null" />
   <CommentBox v-if="commentingNovel" :novel="commentingNovel" @close="commentingNovel = null" />
 </template>
