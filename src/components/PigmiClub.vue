@@ -1,6 +1,7 @@
 <script setup>
 import PigmiFace from './PigmiFace.vue'
 import SectionTitle from './SectionTitle.vue'
+import LevelQuery from './LevelQuery.vue'
 import { site } from '../data.js'
 </script>
 
@@ -21,6 +22,8 @@ import { site } from '../data.js'
           <p class="qq font-cute">🐾 {{ site.fanClub.qq }}</p>
         </div>
       </div>
+
+      <LevelQuery v-reveal />
     </div>
   </section>
 </template>
