@@ -17,8 +17,29 @@ const tabs = [
   { key: 'notices', label: '公告管理' },
   { key: 'novels', label: '小说上架' },
   { key: 'gallery', label: '插画管理' },
+  { key: 'wall', label: '明信片管理' },
   { key: 'account', label: '修改密码' },
 ]
+
+const wallPosts = ref([])
+
+async function loadWall() {
+  const res = await fetch('/api/wall')
+  wallPosts.value = await res.json()
+}
+
+async function delWall(img) {
+  const res = await fetch('/api/admin/wall/delete', {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ img }),
+  })
+  if (res.status === 401) return logout()
+  if (res.ok) {
+    wallPosts.value = wallPosts.value.filter((p) => p.img !== img)
+    showToast('已撤下 ✅')
+  }
+}
 
 // 新条目表单
 const newNotice = reactive({ date: new Date().toISOString().slice(0, 10), tag: '公告', text: '' })
@@ -65,6 +86,7 @@ function logout() {
 async function loadContent() {
   const res = await fetch('/api/content')
   Object.assign(c, await res.json())
+  loadWall()
   loaded.value = true
 }
 
@@ -262,6 +284,19 @@ function showToast(text) {
         </div>
       </section>
 
+      <!-- 明信片管理 -->
+      <section v-else-if="tab === 'wall'" class="tab-body">
+        <p class="hint-text">群友寄来的明信片,不合适的可以撤下(会同时删除图片文件)</p>
+        <div v-if="!wallPosts.length" class="hint-text">还没有明信片~</div>
+        <div class="art-grid">
+          <figure v-for="p in wallPosts" :key="p.img">
+            <img :src="`/wall/${p.img}`" :alt="p.nick" />
+            <figcaption>{{ p.nick }} · {{ p.note }}</figcaption>
+            <button class="del" @click="delWall(p.img)">撤下</button>
+          </figure>
+        </div>
+      </section>
+
       <!-- 修改密码 -->
       <section v-else class="tab-body">
         <label>原密码 <input v-model="oldPass" type="password" /></label>
@@ -269,7 +304,7 @@ function showToast(text) {
         <button class="btn btn-primary" @click="changePass">更新密码</button>
       </section>
 
-      <footer v-if="tab !== 'account'" class="panel-foot">
+      <footer v-if="tab !== 'account' && tab !== 'wall'" class="panel-foot">
         <button class="btn btn-primary" :disabled="saving" @click="save">
           {{ saving ? '保存中…' : '💾 保存全部修改' }}
         </button>
@@ -498,6 +533,11 @@ time {
 .btn.small {
   padding: 8px 18px;
   font-size: 0.9rem;
+}
+
+.hint-text {
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .toast {

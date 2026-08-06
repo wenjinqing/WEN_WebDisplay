@@ -8,6 +8,7 @@ import NovelMenu from './components/NovelMenu.vue'
 import NovelReader from './components/NovelReader.vue'
 import GalleryWall from './components/GalleryWall.vue'
 import InteractSection from './components/InteractSection.vue'
+import PigmiWall from './components/PigmiWall.vue'
 import PigmiClub from './components/PigmiClub.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import BackToTop from './components/BackToTop.vue'
@@ -24,6 +25,7 @@ const readingNovel = ref(null)
     <NovelMenu @read="readingNovel = $event" />
     <GalleryWall />
     <InteractSection />
+    <PigmiWall />
     <PigmiClub />
   </main>
   <SiteFooter />
