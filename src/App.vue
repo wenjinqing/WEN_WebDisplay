@@ -7,6 +7,7 @@ import AboutAuthor from './components/AboutAuthor.vue'
 import NovelMenu from './components/NovelMenu.vue'
 import NovelReader from './components/NovelReader.vue'
 import GalleryWall from './components/GalleryWall.vue'
+import InteractSection from './components/InteractSection.vue'
 import PigmiClub from './components/PigmiClub.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import BackToTop from './components/BackToTop.vue'
@@ -22,6 +23,7 @@ const readingNovel = ref(null)
     <AboutAuthor />
     <NovelMenu @read="readingNovel = $event" />
     <GalleryWall />
+    <InteractSection />
     <PigmiClub />
   </main>
   <SiteFooter />
