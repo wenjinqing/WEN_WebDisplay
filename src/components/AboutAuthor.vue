@@ -1,5 +1,4 @@
 <script setup>
-import CatFace from './CatFace.vue'
 import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 </script>
@@ -11,7 +10,7 @@ import { site } from '../data.js'
 
       <div class="card hd-card" v-reveal>
         <div class="avatar">
-          <CatFace :size="140" />
+          <img src="/alice.png" alt="爱丽丝猫猫酱的头像" class="avatar-img" />
           <span class="name font-cute">{{ site.author }}</span>
         </div>
         <div class="bio">
@@ -42,6 +41,15 @@ import { site } from '../data.js'
 .avatar {
   flex-shrink: 0;
   text-align: center;
+}
+
+.avatar-img {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 4px solid var(--pink-soft);
+  box-shadow: var(--shadow);
+  object-fit: cover;
 }
 
 .name {
