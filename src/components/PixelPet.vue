@@ -214,28 +214,28 @@ onUnmounted(() => {
   background-repeat: no-repeat;
 }
 
-.sprite.alice { width: 76px; height: 76px; }
+.sprite.alice { width: 76px; height: 108px; }
 .sprite.pigmi { width: 56px; height: 56px; }
 
 /* 爱丽丝(帧宽76) */
 .sprite.alice.walk {
-  background-image: url('/pets/alice-walk.png');
-  background-size: 304px 76px;
+  background-image: url('/pets/evil-walk.png');
+  background-size: 304px 108px;
   animation: fr4a 0.55s steps(1) infinite;
 }
 .sprite.alice.idle {
-  background-image: url('/pets/alice-idle.png');
-  background-size: 152px 76px;
+  background-image: url('/pets/evil-idle.png');
+  background-size: 152px 108px;
   animation: fr2a 1.4s steps(1) infinite;
 }
 .sprite.alice.sleep {
-  background-image: url('/pets/alice-sleep.png');
-  background-size: 152px 76px;
+  background-image: url('/pets/evil-sleep.png');
+  background-size: 152px 108px;
   animation: fr2a 2.2s steps(1) infinite;
 }
 .sprite.alice.poke {
-  background-image: url('/pets/alice-poke.png');
-  background-size: 152px 76px;
+  background-image: url('/pets/evil-poke.png');
+  background-size: 152px 108px;
   animation: fr2a 0.3s steps(1) infinite;
 }
 
