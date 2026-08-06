@@ -214,29 +214,29 @@ onUnmounted(() => {
   background-repeat: no-repeat;
 }
 
-/* 爱丽丝 Evil 全身像素小人(帧宽96,高136) */
-.sprite.alice { width: 96px; height: 136px; }
+/* 爱丽丝 Evil 全身像素小人(帧宽64,高91) */
+.sprite.alice { width: 64px; height: 91px; }
 .sprite.pigmi { width: 56px; height: 56px; }
 
-/* 爱丽丝(帧宽96) */
+/* 爱丽丝(帧宽64) */
 .sprite.alice.walk {
   background-image: url('/pets/evil-walk.png');
-  background-size: 384px 136px;
+  background-size: 256px 91px;
   animation: fr4a 0.55s steps(1) infinite;
 }
 .sprite.alice.idle {
   background-image: url('/pets/evil-idle.png');
-  background-size: 192px 136px;
+  background-size: 128px 91px;
   animation: fr2a 1.4s steps(1) infinite;
 }
 .sprite.alice.sleep {
   background-image: url('/pets/evil-sleep.png');
-  background-size: 192px 136px;
+  background-size: 128px 91px;
   animation: fr2a 2.2s steps(1) infinite;
 }
 .sprite.alice.poke {
   background-image: url('/pets/evil-poke.png');
-  background-size: 192px 136px;
+  background-size: 128px 91px;
   animation: fr2a 0.3s steps(1) infinite;
 }
 
@@ -264,13 +264,13 @@ onUnmounted(() => {
 
 @keyframes fr4a {
   0% { background-position-x: 0; }
-  25% { background-position-x: -96px; }
-  50% { background-position-x: -192px; }
-  75% { background-position-x: -288px; }
+  25% { background-position-x: -64px; }
+  50% { background-position-x: -128px; }
+  75% { background-position-x: -192px; }
 }
 @keyframes fr2a {
   0% { background-position-x: 0; }
-  50% { background-position-x: -96px; }
+  50% { background-position-x: -64px; }
 }
 @keyframes fr4p {
   0% { background-position-x: 0; }
