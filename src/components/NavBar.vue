@@ -10,6 +10,7 @@ const links = [
   { href: '#author', label: '关于猫猫酱' },
   { href: '#novels', label: '小说菜单' },
   { href: '#gallery', label: '插画墙' },
+  { href: '#interact', label: '互动区' },
   { href: '#pigmi', label: '猪咪聚集地' },
 ]
 </script>
