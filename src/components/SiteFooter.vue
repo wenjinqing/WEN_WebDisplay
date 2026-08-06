@@ -11,6 +11,9 @@ import { site } from '../data.js'
       <p class="note">
         本站为「{{ site.author }}」的非官方粉丝后援页 · 作品版权归原作者所有 · 用爱发电 💗
       </p>
+      <p class="note">
+        插画素材:<a class="credit" href="https://www.irasutoya.com/" target="_blank" rel="noopener">いらすとや</a>(免费授权使用)
+      </p>
       <a :href="site.authorPixiv" target="_blank" rel="noopener" class="pixiv">
         作者 P 站主页 ↗
       </a>
@@ -59,5 +62,15 @@ import { site } from '../data.js'
   color: var(--muted);
   font-size: 0.8rem;
   opacity: 0.7;
+}
+
+.credit {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.credit:hover {
+  color: var(--pink-deep);
+  text-decoration: underline;
 }
 </style>

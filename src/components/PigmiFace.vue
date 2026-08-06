@@ -1,35 +1,12 @@
 <script setup>
-// 猪咪 v2 — 圆脸圆耳,猫耳 + 猪鼻的 Q 版粉丝形象
+// 猪咪吉祥物 — 梦幻可爱小猪(いらすとや 免费素材,页脚已标注)
+import pigUrl from '../assets/pig-yumeko.png'
+
 defineProps({
   size: { type: [Number, String], default: 120 },
 })
 </script>
 
 <template>
-  <svg :width="size" :height="size" viewBox="0 0 200 200" aria-hidden="true">
-    <g stroke-linecap="round" stroke-linejoin="round">
-      <!-- 小圆猫耳:短短的,贴着头顶 -->
-      <path d="M48 104 Q 44 72 62 68 Q 80 64 84 90 Z" fill="#ffd6e2" stroke="#f9718f" stroke-width="5" />
-      <path d="M152 104 Q 156 72 138 68 Q 120 64 116 90 Z" fill="#ffd6e2" stroke="#f9718f" stroke-width="5" />
-
-      <!-- 圆脑袋 -->
-      <ellipse cx="100" cy="126" rx="64" ry="56" fill="#ffd6e2" stroke="#f9718f" stroke-width="5" />
-
-      <!-- 开心眯眯眼 -->
-      <path d="M62 122 Q 73 110 84 122" fill="none" stroke="#5b3a47" stroke-width="5.5" />
-      <path d="M116 122 Q 127 110 138 122" fill="none" stroke="#5b3a47" stroke-width="5.5" />
-
-      <!-- 大猪鼻子 -->
-      <ellipse cx="100" cy="142" rx="19" ry="14" fill="#ffb3c6" stroke="#f9718f" stroke-width="4" />
-      <ellipse cx="93" cy="142" rx="3.5" ry="5.5" fill="#e85d7f" />
-      <ellipse cx="107" cy="142" rx="3.5" ry="5.5" fill="#e85d7f" />
-
-      <!-- 腮红 -->
-      <ellipse cx="58" cy="142" rx="10" ry="6" fill="#ffb3c6" opacity="0.85" />
-      <ellipse cx="142" cy="142" rx="10" ry="6" fill="#ffb3c6" opacity="0.85" />
-
-      <!-- 头顶卷卷呆毛 -->
-      <path d="M100 70 Q 114 58 105 49 Q 98 43 105 35" fill="none" stroke="#f9718f" stroke-width="4" />
-    </g>
-  </svg>
+  <img :src="pigUrl" :width="size" alt="猪咪" draggable="false" />
 </template>
