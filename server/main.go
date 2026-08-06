@@ -4,11 +4,15 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"log"
 	"net/http"
@@ -17,6 +21,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 )
 
 const (
@@ -62,6 +69,7 @@ type Message struct {
 	Nick    string `json:"nick"`
 	Content string `json:"content"`
 	Time    string `json:"time"`
+	Reply   string `json:"reply,omitempty"` // 店主回复
 }
 
 type Urge struct {
@@ -291,6 +299,36 @@ func handleUrge(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ---------- 图片压缩 ----------
+
+// 超过 1200px 宽的图片自动等比缩小并重新压缩;GIF 原样保存以保留动图
+func saveImageCompressed(data []byte, ext, dst string) error {
+	if ext == ".gif" {
+		return os.WriteFile(dst, data, 0644)
+	}
+	src, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("图片解码失败: %w", err)
+	}
+	b := src.Bounds()
+	const maxW = 1200
+	if b.Dx() > maxW {
+		h := b.Dy() * maxW / b.Dx()
+		scaled := image.NewRGBA(image.Rect(0, 0, maxW, h))
+		draw.CatmullRom.Scale(scaled, scaled.Bounds(), src, b, draw.Over, nil)
+		src = scaled
+	}
+	f, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if ext == ".png" { // PNG 可能带透明通道,保留格式
+		return png.Encode(f, src)
+	}
+	return jpeg.Encode(f, src, &jpeg.Options{Quality: 82})
+}
+
 // ---------- 站点内容 ----------
 
 // GET /api/content — 公开,前台启动时拉取
@@ -437,13 +475,20 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := fmt.Sprintf("%d-%s", time.Now().Unix(), safeName(header.Filename))
-	dst, err := os.Create(filepath.Join(dir, name))
+	data, err := io.ReadAll(f)
 	if err != nil {
-		writeJSON(w, 500, map[string]string{"error": "服务器保存失败"})
+		writeJSON(w, 400, map[string]string{"error": "文件读取失败"})
 		return
 	}
-	defer dst.Close()
-	io.Copy(dst, f)
+	if typ == "gallery" { // 只有图片走压缩,小说文本原样保存
+		err = saveImageCompressed(data, ext, filepath.Join(dir, name))
+	} else {
+		err = os.WriteFile(filepath.Join(dir, name), data, 0644)
+	}
+	if err != nil {
+		writeJSON(w, 400, map[string]string{"error": "文件处理失败,换一个试试"})
+		return
+	}
 	log.Printf("店主上传了文件: %s/%s", typ, name)
 	writeJSON(w, 200, map[string]string{"file": name})
 }
@@ -514,13 +559,15 @@ func handleWall(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		name := fmt.Sprintf("%d-%s", time.Now().Unix(), safeName(header.Filename))
-		dst, err := os.Create(filepath.Join(wallDir, name))
+		data, err := io.ReadAll(f)
 		if err != nil {
-			writeJSON(w, 500, map[string]string{"error": "服务器保存失败"})
+			writeJSON(w, 400, map[string]string{"error": "文件读取失败"})
 			return
 		}
-		io.Copy(dst, f)
-		dst.Close()
+		if err := saveImageCompressed(data, ext, filepath.Join(wallDir, name)); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "图片处理失败,换一张试试"})
+			return
+		}
 
 		nick := clean(r.FormValue("nick"), maxNickLen)
 		if nick == "" {
@@ -633,6 +680,106 @@ func handleWallDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "deleted"})
 }
 
+// ---------- 留言管理(店主) ----------
+
+// POST /api/admin/messages/delete {time, nick} — 删除留言
+func handleMessageDelete(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	var req struct {
+		Time string `json:"time"`
+		Nick string `json:"nick"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	mu.Lock()
+	for i, m := range store.Messages {
+		if m.Time == req.Time && m.Nick == req.Nick {
+			store.Messages = append(store.Messages[:i], store.Messages[i+1:]...)
+			break
+		}
+	}
+	saveStore()
+	mu.Unlock()
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+// POST /api/admin/messages/reply {time, nick, reply} — 回复留言
+func handleMessageReply(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	var req struct {
+		Time  string `json:"time"`
+		Nick  string `json:"nick"`
+		Reply string `json:"reply"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	mu.Lock()
+	found := false
+	for i := range store.Messages {
+		if store.Messages[i].Time == req.Time && store.Messages[i].Nick == req.Nick {
+			store.Messages[i].Reply = clean(req.Reply, maxTextLen)
+			found = true
+			break
+		}
+	}
+	if found {
+		saveStore()
+	}
+	mu.Unlock()
+	if !found {
+		writeJSON(w, 404, map[string]string{"error": "留言不存在"})
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "ok"})
+}
+
+// ---------- 访问统计 ----------
+
+type Stats struct {
+	Total      int    `json:"total"`
+	Today      string `json:"today"`
+	TodayCount int    `json:"todayCount"`
+}
+
+var (
+	statsMu sync.Mutex
+	stats   Stats
+)
+
+const statsFile = "/var/lib/catcafe/stats.json"
+
+func loadStats() {
+	data, err := os.ReadFile(statsFile)
+	if err == nil {
+		json.Unmarshal(data, &stats)
+	}
+}
+
+// GET /api/hit — 页面打开时调用,累计访问量
+func handleHit(w http.ResponseWriter, r *http.Request) {
+	statsMu.Lock()
+	today := time.Now().Format("2006-01-02")
+	if stats.Today != today {
+		stats.Today = today
+		stats.TodayCount = 0
+	}
+	stats.Total++
+	stats.TodayCount++
+	data, _ := json.Marshal(stats)
+	os.WriteFile(statsFile, data, 0644)
+	out := stats
+	statsMu.Unlock()
+	writeJSON(w, 200, out)
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -643,6 +790,7 @@ func main() {
 	}
 	loadStore()
 	loadWall()
+	loadStats()
 
 	// 首次启动:写入默认店主密码哈希
 	if _, err := os.Stat(passFile); os.IsNotExist(err) {
@@ -655,6 +803,7 @@ func main() {
 	mux.HandleFunc("/api/urge", handleUrge)
 	mux.HandleFunc("/api/wall", handleWall)
 	mux.HandleFunc("/api/wall/like", handleWallLike)
+	mux.HandleFunc("/api/hit", handleHit)
 	mux.HandleFunc("/api/content", handleContent)
 	mux.HandleFunc("/api/admin/login", handleLogin)
 	mux.HandleFunc("/api/admin/content", handlePutContent)
@@ -662,6 +811,8 @@ func main() {
 	mux.HandleFunc("/api/admin/upload", handleUpload)
 	mux.HandleFunc("/api/admin/delete-file", handleDeleteFile)
 	mux.HandleFunc("/api/admin/wall/delete", handleWallDelete)
+	mux.HandleFunc("/api/admin/messages/delete", handleMessageDelete)
+	mux.HandleFunc("/api/admin/messages/reply", handleMessageReply)
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]string{"status": "ok"})
 	})

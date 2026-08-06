@@ -42,6 +42,9 @@ onMounted(async () => {
     const res = await fetch(`/downloads/${props.novel.file}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     pages.value = paginate(await res.text())
+    // 恢复上次的阅读进度
+    const saved = Number(localStorage.getItem(`read_${props.novel.file}`))
+    if (saved > 0 && saved < pages.value.length) page.value = saved
   } catch (e) {
     error.value = '小说加载失败了,刷新一下再试试喵~'
   } finally {
@@ -54,8 +57,9 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
 })
 
-watch(page, () => {
+watch(page, (p) => {
   contentEl.value?.scrollTo({ top: 0 })
+  localStorage.setItem(`read_${props.novel.file}`, String(p)) // 记住阅读进度
 })
 
 function prev() {

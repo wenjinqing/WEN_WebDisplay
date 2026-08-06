@@ -1,9 +1,18 @@
 <script setup>
+import { ref, computed } from 'vue'
 import PawPrint from './PawPrint.vue'
 import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 
 const emit = defineEmits(['read'])
+
+const cats = ['全部', '连载中', '已完结', '番外']
+const activeCat = ref('全部')
+const filtered = computed(() =>
+  activeCat.value === '全部'
+    ? site.novels
+    : site.novels.filter((n) => (n.cat || '已完结') === activeCat.value)
+)
 </script>
 
 <template>
@@ -11,12 +20,24 @@ const emit = defineEmits(['read'])
     <div class="container">
       <SectionTitle title="今日特供 · 小说菜单" sub="点单即下载 · 本区作品含轻度成人向内容,未成年猪咪请自觉绕行喵~" />
 
+      <div class="cat-tabs" v-reveal>
+        <button
+          v-for="t in cats"
+          :key="t"
+          :class="{ active: activeCat === t }"
+          @click="activeCat = t"
+        >
+          {{ t }}
+        </button>
+      </div>
+
       <div class="menu-board" v-reveal>
-        <div v-for="n in site.novels" :key="n.file" class="menu-item">
+        <div v-for="n in filtered" :key="n.file" class="menu-item">
           <div class="item-info">
             <div class="item-head">
               <h3 class="font-cute">{{ n.title }}</h3>
               <span class="cup">{{ n.cup }}</span>
+              <span v-if="n.cat" class="cat-tag">{{ n.cat }}</span>
             </div>
             <p class="desc">{{ n.desc }}</p>
           </div>
@@ -28,6 +49,7 @@ const emit = defineEmits(['read'])
             </a>
           </div>
         </div>
+        <p v-if="!filtered.length" class="empty-tip">这个分类还空着,等猫猫酱上新喵~</p>
       </div>
     </div>
   </section>
@@ -97,6 +119,46 @@ h3 {
   border-radius: 999px;
   padding: 2px 12px;
   white-space: nowrap;
+}
+
+.cat-tag {
+  font-size: 0.8rem;
+  color: #fff;
+  background: var(--pink);
+  border-radius: 999px;
+  padding: 2px 12px;
+  white-space: nowrap;
+}
+
+.cat-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.cat-tabs button {
+  border: 2px solid var(--pink-soft);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cat-tabs button.active {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+}
+
+.empty-tip {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px 0;
 }
 
 .desc {

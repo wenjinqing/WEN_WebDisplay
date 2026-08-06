@@ -1,6 +1,19 @@
 <script setup>
+import { ref, onMounted } from 'vue'
 import PawPrint from './PawPrint.vue'
 import { site } from '../data.js'
+
+const visits = ref(0)
+
+onMounted(async () => {
+  try {
+    const res = await fetch('/api/hit')
+    const data = await res.json()
+    visits.value = data.total || 0
+  } catch {
+    /* 统计失败不影响页面 */
+  }
+})
 </script>
 
 <template>
@@ -14,6 +27,7 @@ import { site } from '../data.js'
       <p class="note">
         插画素材:<a class="credit" href="https://www.irasutoya.com/" target="_blank" rel="noopener">いらすとや</a>(免费授权使用)
       </p>
+      <p v-if="visits" class="note">☕ 已有 {{ visits }} 只猪咪来喝过咖啡</p>
       <a :href="site.authorPixiv" target="_blank" rel="noopener" class="pixiv">
         作者 P 站主页 ↗
       </a>
