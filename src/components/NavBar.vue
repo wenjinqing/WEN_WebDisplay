@@ -21,7 +21,7 @@ const links = [
     <div class="container nav-inner">
       <a href="#home" class="logo font-cute">
         <PawPrint :size="26" color="#f9718f" />
-        涩猫咖啡厅
+        小涩猫咖啡厅
       </a>
       <button class="burger" :aria-expanded="open" aria-label="菜单" @click="open = !open">
         <span /><span /><span />
