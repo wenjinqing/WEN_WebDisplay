@@ -6,8 +6,9 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 
 const hidden = ref(localStorage.getItem('catcafe_pet_hide') === '1')
 
-const cat = reactive({ x: 15, dir: 1, state: 'walk', bubble: '' })
-const pig = reactive({ x: 8, dir: 1, state: 'walk', mode: 'follow', bubble: '' })
+const cat = reactive({ x: 15, dir: 1, state: 'walk', bubble: '', anim: '' })
+const pig = reactive({ x: 8, dir: 1, state: 'walk', mode: 'follow', bubble: '', anim: '' })
+// anim: 临时动作(被戳),优先于 state 显示
 // pig.mode: follow 追猫 | sprint 撒欢乱跑 | idle 休息
 
 const CAT_SAYS = [
@@ -96,12 +97,16 @@ function maybeBubble() {
 
 function pokeCat() {
   say(cat, CAT_POKED[Math.floor(Math.random() * CAT_POKED.length)], 2500)
+  cat.anim = 'poke'
   cat.state = 'idle'
+  setTimeout(() => (cat.anim = ''), 900)
   setTimeout(() => (cat.state = 'walk'), 2000)
 }
 
 function pokePig() {
   say(pig, PIG_POKED[Math.floor(Math.random() * PIG_POKED.length)], 2200)
+  pig.anim = 'poke'
+  setTimeout(() => (pig.anim = ''), 900)
   // 被点了会吓得跑开一小段
   pig.mode = 'sprint'
   pig.dir = pig.x > cat.x ? 1 : -1
@@ -151,7 +156,15 @@ onUnmounted(() => {
       <button class="pet-hide" aria-label="让她们去休息" @click="hide">×</button>
       <span v-if="cat.state === 'sleep'" class="zzz">💤</span>
       <span class="flipper" :class="{ flip: cat.dir < 0 }">
-        <img src="/alice-pixel.png" alt="爱丽丝看板娘" class="pet-img" :class="cat.state" draggable="false" @click="pokeCat" />
+        <div
+          class="sprite alice"
+          :class="cat.anim || cat.state"
+          role="button"
+          tabindex="0"
+          aria-label="戳一下爱丽丝"
+          @click="pokeCat"
+          @keyup.enter="pokeCat"
+        />
       </span>
     </div>
 
@@ -161,7 +174,15 @@ onUnmounted(() => {
         <span v-if="pig.bubble" class="pet-bubble pig-bubble">{{ pig.bubble }}</span>
       </transition>
       <span class="flipper" :class="{ flip: pig.dir < 0 }">
-        <img src="/pigmi-pixel.png" alt="像素猪咪" class="pet-img pig-img" :class="pig.state" draggable="false" @click="pokePig" />
+        <div
+          class="sprite pigmi"
+          :class="pig.anim || pig.state"
+          role="button"
+          tabindex="0"
+          aria-label="戳一下猪咪"
+          @click="pokePig"
+          @keyup.enter="pokePig"
+        />
       </span>
     </div>
   </template>
@@ -184,45 +205,81 @@ onUnmounted(() => {
   transform: scaleX(-1);
 }
 
-.pet-img {
-  width: 76px;
+/* ===== 精灵图帧动画 ===== */
+.sprite {
   image-rendering: pixelated;
   pointer-events: auto;
   cursor: pointer;
   user-select: none;
+  background-repeat: no-repeat;
 }
 
-.pig-img {
-  width: 56px; /* 猪咪小一号,更像跟班 */
+.sprite.alice { width: 76px; height: 76px; }
+.sprite.pigmi { width: 56px; height: 56px; }
+
+/* 爱丽丝(帧宽76) */
+.sprite.alice.walk {
+  background-image: url('/pets/alice-walk.png');
+  background-size: 304px 76px;
+  animation: fr4a 0.55s steps(1) infinite;
+}
+.sprite.alice.idle {
+  background-image: url('/pets/alice-idle.png');
+  background-size: 152px 76px;
+  animation: fr2a 1.4s steps(1) infinite;
+}
+.sprite.alice.sleep {
+  background-image: url('/pets/alice-sleep.png');
+  background-size: 152px 76px;
+  animation: fr2a 2.2s steps(1) infinite;
+}
+.sprite.alice.poke {
+  background-image: url('/pets/alice-poke.png');
+  background-size: 152px 76px;
+  animation: fr2a 0.3s steps(1) infinite;
 }
 
-/* 散步:上下小跑 */
-.pet-img.walk {
-  animation: walkBob 0.45s ease-in-out infinite;
+/* 猪咪(帧宽56,腿短倒腾快) */
+.sprite.pigmi.walk {
+  background-image: url('/pets/pigmi-walk.png');
+  background-size: 224px 56px;
+  animation: fr4p 0.4s steps(1) infinite;
+}
+.sprite.pigmi.idle {
+  background-image: url('/pets/pigmi-idle.png');
+  background-size: 112px 56px;
+  animation: fr2p 1.4s steps(1) infinite;
+}
+.sprite.pigmi.sleep {
+  background-image: url('/pets/pigmi-sleep.png');
+  background-size: 112px 56px;
+  animation: fr2p 2.2s steps(1) infinite;
+}
+.sprite.pigmi.poke {
+  background-image: url('/pets/pigmi-poke.png');
+  background-size: 112px 56px;
+  animation: fr2p 0.3s steps(1) infinite;
 }
 
-.pig-img.walk {
-  animation-duration: 0.35s; /* 猪腿短,倒腾得更快 */
+@keyframes fr4a {
+  0% { background-position-x: 0; }
+  25% { background-position-x: -76px; }
+  50% { background-position-x: -152px; }
+  75% { background-position-x: -228px; }
 }
-
-@keyframes walkBob {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50% { transform: translateY(-5px) rotate(2deg); }
+@keyframes fr2a {
+  0% { background-position-x: 0; }
+  50% { background-position-x: -76px; }
 }
-
-/* 休息:呼吸 */
-.pet-img.idle {
-  animation: breathe 2.4s ease-in-out infinite;
+@keyframes fr4p {
+  0% { background-position-x: 0; }
+  25% { background-position-x: -56px; }
+  50% { background-position-x: -112px; }
+  75% { background-position-x: -168px; }
 }
-
-@keyframes breathe {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(0.94); }
-}
-
-/* 睡觉:变暗静止 */
-.pet-img.sleep {
-  filter: brightness(0.85) saturate(0.8);
+@keyframes fr2p {
+  0% { background-position-x: 0; }
+  50% { background-position-x: -56px; }
 }
 
 .zzz {
@@ -301,20 +358,14 @@ onUnmounted(() => {
 }
 
 @media (max-width: 720px) {
-  .pet-img {
-    width: 58px;
-  }
-  .pig-img {
-    width: 44px;
-  }
   .pet-hide {
     opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pet-img.walk, .pet-img.idle, .zzz {
-    animation: none;
+  .sprite {
+    animation: none !important;
   }
 }
 </style>
