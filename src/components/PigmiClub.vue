@@ -1,15 +1,15 @@
 <script setup>
 import PigmiFace from './PigmiFace.vue'
+import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 </script>
 
 <template>
   <section id="pigmi">
     <div class="container">
-      <h2 class="section-title" v-reveal>猪咪聚集地</h2>
-      <p class="section-sub" v-reveal>本店常客的专属小窝</p>
+      <SectionTitle title="猪咪聚集地" sub="本店常客的专属小窝" />
 
-      <div class="club-card" v-reveal>
+      <div class="club-card hd-card" v-reveal>
         <div class="pigmis">
           <PigmiFace :size="90" />
           <PigmiFace :size="70" style="margin-top: 24px" />

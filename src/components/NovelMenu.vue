@@ -1,5 +1,6 @@
 <script setup>
 import PawPrint from './PawPrint.vue'
+import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 
 const emit = defineEmits(['read'])
@@ -8,10 +9,7 @@ const emit = defineEmits(['read'])
 <template>
   <section id="novels" class="menu-section">
     <div class="container">
-      <h2 class="section-title" v-reveal>今日特供 · 小说菜单</h2>
-      <p class="section-sub" v-reveal>
-        点单即下载 · 本区作品含轻度成人向内容,未成年猪咪请自觉绕行喵~
-      </p>
+      <SectionTitle title="今日特供 · 小说菜单" sub="点单即下载 · 本区作品含轻度成人向内容,未成年猪咪请自觉绕行喵~" />
 
       <div class="menu-board" v-reveal>
         <div v-for="n in site.novels" :key="n.file" class="menu-item">

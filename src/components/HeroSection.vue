@@ -2,17 +2,23 @@
 import CatFace from './CatFace.vue'
 import PigmiFace from './PigmiFace.vue'
 import PawPrint from './PawPrint.vue'
+import HandDoodle from './HandDoodle.vue'
 import { site } from '../data.js'
 </script>
 
 <template>
   <section id="home" class="hero">
-    <!-- 漂浮的猫爪背景 -->
+    <!-- 漂浮的猫爪 + 手绘涂鸦背景 -->
     <div class="paws" aria-hidden="true">
       <PawPrint :size="44" class="paw p1" :rotate="-24" />
       <PawPrint :size="30" class="paw p2" :rotate="18" />
       <PawPrint :size="56" class="paw p3" :rotate="40" />
       <PawPrint :size="26" class="paw p4" :rotate="-10" />
+      <HandDoodle kind="cloud" :size="90" class="paw d1" />
+      <HandDoodle kind="cloud" :size="64" class="paw d2" />
+      <HandDoodle kind="star" :size="26" class="paw d3" />
+      <HandDoodle kind="star" :size="18" class="paw d4" />
+      <HandDoodle kind="heart" :size="30" class="paw d5" />
     </div>
 
     <div class="container hero-inner">
@@ -28,6 +34,7 @@ import { site } from '../data.js'
           <a :href="site.authorPixiv" target="_blank" rel="noopener" class="btn btn-ghost">
             作者主页 ↗
           </a>
+          <HandDoodle kind="arrow" :size="56" class="cta-arrow" />
         </div>
       </div>
 
@@ -128,6 +135,29 @@ h1 {
 .p3 { bottom: 8%; right: 6%; }
 .p4 { top: 8%; right: 28%; }
 
+/* 手绘涂鸦:云和星星慢悠悠地漂 */
+.d1 { top: 6%; left: 34%; animation: drift 9s ease-in-out infinite; }
+.d2 { bottom: 14%; left: 8%; animation: drift 11s ease-in-out 1.5s infinite; }
+.d3 { top: 20%; right: 10%; animation: drift 7s ease-in-out 0.5s infinite; }
+.d4 { top: 46%; left: 28%; animation: drift 8s ease-in-out 2s infinite; }
+.d5 { bottom: 24%; right: 32%; animation: drift 10s ease-in-out 1s infinite; }
+
+@keyframes drift {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(4deg); }
+}
+
+.actions {
+  position: relative;
+}
+
+.cta-arrow {
+  position: absolute;
+  right: -64px;
+  top: -34px;
+  transform: rotate(8deg);
+}
+
 @media (max-width: 720px) {
   .hero-inner {
     flex-direction: column-reverse;
@@ -143,9 +173,12 @@ h1 {
   .paws .paw {
     display: none;
   }
+  .cta-arrow {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cat, .pigmi { animation: none; }
+  .cat, .pigmi, .paws .paw { animation: none; }
 }
 </style>

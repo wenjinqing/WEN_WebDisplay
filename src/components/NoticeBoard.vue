@@ -1,4 +1,5 @@
 <script setup>
+import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 
 const tagColor = {
@@ -12,8 +13,7 @@ const tagColor = {
 <template>
   <section id="notice">
     <div class="container">
-      <h2 class="section-title" v-reveal>咖啡厅公告板</h2>
-      <p class="section-sub" v-reveal>新坑上架 · 活动通知 · 店主的碎碎念</p>
+      <SectionTitle title="咖啡厅公告板" sub="新坑上架 · 活动通知 · 店主的碎碎念" />
 
       <div class="board" v-reveal>
         <div v-for="(n, i) in site.notices" :key="i" class="notice">
@@ -42,8 +42,9 @@ const tagColor = {
 .notice {
   background: rgba(255, 249, 250, 0.08);
   border: 1px dashed rgba(255, 214, 226, 0.4);
-  border-radius: 14px;
-  padding: 16px 20px;
+  /* 手绘便利贴:歪扭圆角 */
+  border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px;
+  padding: 16px 22px;
   margin-bottom: 14px;
   color: #fff6f8;
 }
