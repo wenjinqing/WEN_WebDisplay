@@ -228,9 +228,20 @@ h1 {
 }
 
 .pet-count {
+  position: relative;
+  z-index: 2; /* 盖过旁边的小猪咪 */
+  display: inline-block;
   margin-top: 10px;
   font-size: 0.85rem;
   color: var(--muted);
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid var(--pink-pale);
+  border-radius: 999px;
+  padding: 4px 16px;
+}
+
+.pigmi {
+  z-index: 1;
 }
 
 .cat {
