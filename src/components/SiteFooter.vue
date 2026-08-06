@@ -14,6 +14,7 @@ import { site } from '../data.js'
       <a :href="site.authorPixiv" target="_blank" rel="noopener" class="pixiv">
         作者 P 站主页 ↗
       </a>
+      <a href="/admin" class="pixiv admin-link">店主通道</a>
     </div>
   </footer>
 </template>
@@ -52,5 +53,11 @@ import { site } from '../data.js'
 
 .pixiv:hover {
   text-decoration: underline;
+}
+
+.admin-link {
+  color: var(--muted);
+  font-size: 0.8rem;
+  opacity: 0.7;
 }
 </style>

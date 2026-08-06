@@ -1,26 +1,60 @@
-// 爱丽丝的小涩猫咖啡厅 —— 留言板 & 催更墙 API
+// 爱丽丝的小涩猫咖啡厅 —— API 服务
+// 功能:留言板 / 催更墙 / 站点内容管理 / 店主后台登录与文件上传
 // 零依赖,仅标准库;数据存 JSON 文件,适合低流量粉丝站
 package main
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	dataFile     = "/var/lib/catcafe/data.json"
-	maxMessages  = 200            // 留言最多保留条数
-	maxUrges     = 50             // 催更记录最多保留条数
-	maxNickLen   = 20             // 昵称最大字符数
-	maxTextLen   = 300            // 内容最大字符数
-	minInterval  = 5 * time.Second // 同一 IP 两次提交的最小间隔
-	listenAddr   = "127.0.0.1:9090"
+	dataFile    = "/var/lib/catcafe/data.json"    // 留言/催更数据
+	contentFile = "/var/lib/catcafe/content.json" // 站点内容
+	passFile    = "/var/lib/catcafe/admin.hash"   // 店主密码哈希
+	galleryDir  = "/var/www/catcafe/gallery"      // 插画目录
+	novelDir    = "/var/www/downloads"            // 小说目录
+
+	maxMessages = 200
+	maxUrges    = 50
+	maxNickLen  = 20
+	maxTextLen  = 300
+	minInterval = 5 * time.Second
+	tokenTTL    = 7 * 24 * time.Hour
+	listenAddr  = "127.0.0.1:9090"
+
+	defaultAdminPass = "alice233" // 首次启动的默认密码,登录后请立即修改
 )
+
+// 站点内容默认值(与前端 src/data.js 一致,content.json 不存在时使用)
+const defaultContent = `{
+  "title": "爱丽丝的小涩猫咖啡厅",
+  "author": "爱丽丝猫猫酱",
+  "authorPixiv": "https://www.pixiv.net/users/16689973",
+  "slogan": "百合小说作家长期营业中,猪咪们里边请~",
+  "aboutAuthor": [
+    "爱丽丝猫猫酱,一位专注于百合题材的轻小说作者。",
+    "笔下是女孩子之间酸酸甜甜、偶尔让人脸红心跳的故事。文字软软的,后劲足足的。",
+    "长期驻扎 P 站更新,欢迎来咖啡厅坐坐,点一杯小说慢慢看。"
+  ],
+  "notices": [
+    {"date": "2026-08-06", "tag": "公告", "text": "咖啡厅正式开业啦!本站是猫猫酱的粉丝后援页,小说会持续上架,欢迎收藏~"}
+  ],
+  "novels": [],
+  "gallery": [],
+  "fanClub": {"name": "猪咪饲养基地", "desc": "店里常客都是可爱的猪咪。进来一起催更、吸猫、聊猫猫酱的新坑!", "qq": "QQ群号:1054390069"}
+}`
 
 type Message struct {
 	Nick    string `json:"nick"`
@@ -40,12 +74,15 @@ type Store struct {
 }
 
 var (
-	mu    sync.Mutex
-	store Store
-	// 简单的 IP 提交频率限制
+	mu       sync.Mutex
+	store    Store
 	rateMu   sync.Mutex
 	lastPost = map[string]time.Time{}
+	tokenMu  sync.Mutex
+	tokens   = map[string]time.Time{} // token → 过期时间
 )
+
+// ---------- 工具 ----------
 
 func loadStore() {
 	data, err := os.ReadFile(dataFile)
@@ -70,7 +107,6 @@ func saveStore() {
 }
 
 func clientIP(r *http.Request) string {
-	// 经过 nginx 代理,取真实 IP
 	if ip := r.Header.Get("X-Real-IP"); ip != "" {
 		return ip
 	}
@@ -103,8 +139,57 @@ func clean(s string, max int) string {
 	return string(r)
 }
 
-// GET /api/messages — 拉取留言(新的在前)
-// POST /api/messages {nick, content} — 发表留言
+// ---------- 店主认证 ----------
+
+func hashPass(p string) string {
+	sum := sha256.Sum256([]byte(p))
+	return hex.EncodeToString(sum[:])
+}
+
+func checkPass(p string) bool {
+	data, err := os.ReadFile(passFile)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(data)) == hashPass(p)
+}
+
+func newToken() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	tok := hex.EncodeToString(b)
+	tokenMu.Lock()
+	tokens[tok] = time.Now().Add(tokenTTL)
+	tokenMu.Unlock()
+	return tok
+}
+
+func authed(r *http.Request) bool {
+	h := r.Header.Get("Authorization")
+	if !strings.HasPrefix(h, "Bearer ") {
+		return false
+	}
+	tok := strings.TrimPrefix(h, "Bearer ")
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
+	exp, ok := tokens[tok]
+	if !ok || time.Now().After(exp) {
+		delete(tokens, tok)
+		return false
+	}
+	return true
+}
+
+func requireAuth(w http.ResponseWriter, r *http.Request) bool {
+	if !authed(r) {
+		writeJSON(w, 401, map[string]string{"error": "请先登录"})
+		return false
+	}
+	return true
+}
+
+// ---------- 留言板 & 催更墙 ----------
+
 func handleMessages(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -144,8 +229,6 @@ func handleMessages(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET /api/urge — 返回 {total, recent}
-// POST /api/urge {nick} — 催更一次
 func handleUrge(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -154,7 +237,7 @@ func handleUrge(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"total": store.UrgeTotal, "recent": store.Urges})
 	case http.MethodPost:
 		var u Urge
-		json.NewDecoder(r.Body).Decode(&u) // body 可空
+		json.NewDecoder(r.Body).Decode(&u)
 		u.Nick = clean(u.Nick, maxNickLen)
 		if u.Nick == "" {
 			u.Nick = "匿名猪咪"
@@ -179,15 +262,213 @@ func handleUrge(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ---------- 站点内容 ----------
+
+// GET /api/content — 公开,前台启动时拉取
+func handleContent(w http.ResponseWriter, r *http.Request) {
+	data, err := os.ReadFile(contentFile)
+	if err != nil {
+		data = []byte(defaultContent)
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write(data)
+}
+
+// PUT /api/admin/content — 登录后整体替换站点内容
+func handlePutContent(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	if r.Method != http.MethodPut {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	body := http.MaxBytesReader(w, r.Body, 1<<20) // 1MB 上限
+	data, err := io.ReadAll(body)
+	if err != nil {
+		writeJSON(w, 400, map[string]string{"error": "内容太大了"})
+		return
+	}
+	var check map[string]any
+	if err := json.Unmarshal(data, &check); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "内容不是合法 JSON"})
+		return
+	}
+	pretty, _ := json.MarshalIndent(check, "", "  ")
+	tmp := contentFile + ".tmp"
+	if err := os.WriteFile(tmp, pretty, 0644); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "保存失败"})
+		return
+	}
+	os.Rename(tmp, contentFile)
+	writeJSON(w, 200, map[string]string{"status": "saved"})
+}
+
+// ---------- 店主登录 ----------
+
+func handleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	if rateLimited(r) {
+		writeJSON(w, 429, map[string]string{"error": "试得太频繁了,歇一会儿"})
+		return
+	}
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || !checkPass(req.Password) {
+		writeJSON(w, 401, map[string]string{"error": "密码不对喵"})
+		return
+	}
+	writeJSON(w, 200, map[string]string{"token": newToken()})
+}
+
+func handleChangePass(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Old string `json:"old"`
+		New string `json:"new"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || !checkPass(req.Old) {
+		writeJSON(w, 401, map[string]string{"error": "原密码不对"})
+		return
+	}
+	if len(req.New) < 6 {
+		writeJSON(w, 400, map[string]string{"error": "新密码至少 6 位"})
+		return
+	}
+	if err := os.WriteFile(passFile, []byte(hashPass(req.New)), 0600); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "保存失败"})
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "ok"})
+}
+
+// ---------- 文件上传/删除 ----------
+
+var allowExt = map[string]map[string]bool{
+	"gallery": {".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true},
+	"novel":   {".txt": true, ".md": true},
+}
+
+var typeDir = map[string]string{
+	"gallery": galleryDir,
+	"novel":   novelDir,
+}
+
+func safeName(name string) string {
+	name = filepath.Base(name) // 去掉路径,防穿越
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9',
+			r == '.', r == '-', r == '_', r >= 0x4e00 && r <= 0x9fff: // 允许中文文件名
+			return r
+		}
+		return '-'
+	}, name)
+}
+
+func handleUpload(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	typ := r.FormValue("type")
+	dir, ok := typeDir[typ]
+	if !ok {
+		writeJSON(w, 400, map[string]string{"error": "type 只能是 gallery 或 novel"})
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 15<<20) // 15MB 上限
+	if err := r.ParseMultipartForm(15 << 20); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "文件太大或格式不对(上限15MB)"})
+		return
+	}
+	f, header, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, 400, map[string]string{"error": "没有收到文件"})
+		return
+	}
+	defer f.Close()
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if !allowExt[typ][ext] {
+		writeJSON(w, 400, map[string]string{"error": "不支持的文件类型: " + ext})
+		return
+	}
+	name := fmt.Sprintf("%d-%s", time.Now().Unix(), safeName(header.Filename))
+	dst, err := os.Create(filepath.Join(dir, name))
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "服务器保存失败"})
+		return
+	}
+	defer dst.Close()
+	io.Copy(dst, f)
+	log.Printf("店主上传了文件: %s/%s", typ, name)
+	writeJSON(w, 200, map[string]string{"file": name})
+}
+
+func handleDeleteFile(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Type string `json:"type"`
+		File string `json:"file"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "请求格式不对"})
+		return
+	}
+	dir, ok := typeDir[req.Type]
+	if !ok || strings.Contains(req.File, "/") || strings.Contains(req.File, "..") {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	os.Remove(filepath.Join(dir, req.File))
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+// ---------- 启动 ----------
+
 func main() {
-	if err := os.MkdirAll("/var/lib/catcafe", 0755); err != nil {
-		log.Fatal(err)
+	for _, d := range []string{"/var/lib/catcafe", galleryDir, novelDir} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			log.Fatal(err)
+		}
 	}
 	loadStore()
+
+	// 首次启动:写入默认店主密码哈希
+	if _, err := os.Stat(passFile); os.IsNotExist(err) {
+		os.WriteFile(passFile, []byte(hashPass(defaultAdminPass)), 0600)
+		log.Printf("!!! 已生成默认店主密码 %q,请登录后台后立即修改", defaultAdminPass)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/messages", handleMessages)
 	mux.HandleFunc("/api/urge", handleUrge)
+	mux.HandleFunc("/api/content", handleContent)
+	mux.HandleFunc("/api/admin/login", handleLogin)
+	mux.HandleFunc("/api/admin/content", handlePutContent)
+	mux.HandleFunc("/api/admin/password", handleChangePass)
+	mux.HandleFunc("/api/admin/upload", handleUpload)
+	mux.HandleFunc("/api/admin/delete-file", handleDeleteFile)
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]string{"status": "ok"})
 	})
