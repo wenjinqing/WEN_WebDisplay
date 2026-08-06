@@ -1,13 +1,13 @@
 <script setup>
 import UrgeWall from './UrgeWall.vue'
 import MessageBoard from './MessageBoard.vue'
+import SectionTitle from './SectionTitle.vue'
 </script>
 
 <template>
   <section id="interact" class="interact">
     <div class="container">
-      <h2 class="section-title" v-reveal>互动区</h2>
-      <p class="section-sub" v-reveal>催更和留言,都是对猫猫酱的爱</p>
+      <SectionTitle title="互动区" sub="催更和留言,都是对猫猫酱的爱" />
       <div class="grid" v-reveal>
         <UrgeWall />
         <MessageBoard />

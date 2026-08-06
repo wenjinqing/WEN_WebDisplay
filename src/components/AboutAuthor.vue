@@ -1,15 +1,15 @@
 <script setup>
 import CatFace from './CatFace.vue'
+import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 </script>
 
 <template>
   <section id="author">
     <div class="container">
-      <h2 class="section-title" v-reveal>关于猫猫酱</h2>
-      <p class="section-sub" v-reveal>本店店长 · 百合小说製造机</p>
+      <SectionTitle title="关于猫猫酱" sub="本店店长 · 百合小说製造机" />
 
-      <div class="card" v-reveal>
+      <div class="card hd-card" v-reveal>
         <div class="avatar">
           <CatFace :size="140" />
           <span class="name font-cute">{{ site.author }}</span>

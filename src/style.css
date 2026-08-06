@@ -25,10 +25,24 @@ html {
 
 body {
   font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: var(--bg);
+  background-color: var(--bg);
+  /* 手绘纸纹理:极淡的纸张噪点 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
   color: var(--ink);
   line-height: 1.7;
   overflow-x: hidden;
+}
+
+/* ===== 手绘风通用件 ===== */
+
+/* 歪扭手绘卡片(大卡片用,幅度收敛) */
+.hd-card {
+  border-radius: 22px 46px 24px 42px / 42px 24px 46px 22px;
+}
+
+/* 歪扭手绘卡片(小号,歪得更俏皮) */
+.hd-card-s {
+  border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
 }
 
 .font-cute {
@@ -60,7 +74,7 @@ section {
   margin-bottom: 40px;
 }
 
-/* 通用按钮 */
+/* 通用按钮 — 贴纸风:硬质偏移投影,按下"陷进去" */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -72,29 +86,37 @@ section {
   text-decoration: none;
   cursor: pointer;
   border: 2px solid transparent;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .btn-primary {
   background: var(--pink);
   color: #fff;
-  box-shadow: 0 6px 16px rgba(249, 113, 143, 0.35);
+  box-shadow: 3px 4px 0 #d14a6e;
 }
 
 .btn-primary:hover {
   background: var(--pink-deep);
-  transform: translateY(-2px);
+  transform: translate(-1px, -2px) rotate(-0.5deg);
+  box-shadow: 4px 6px 0 #d14a6e;
+}
+
+.btn-primary:active {
+  transform: translate(2px, 3px);
+  box-shadow: 0 1px 0 #d14a6e;
 }
 
 .btn-ghost {
   background: #fff;
   color: var(--pink-deep);
   border-color: var(--pink-soft);
+  box-shadow: 3px 4px 0 var(--pink-pale);
 }
 
 .btn-ghost:hover {
   background: var(--pink-pale);
-  transform: translateY(-2px);
+  transform: translate(-1px, -2px) rotate(0.5deg);
+  box-shadow: 4px 6px 0 var(--pink-soft);
 }
 
 /* 滚动淡入 */
