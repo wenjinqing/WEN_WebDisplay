@@ -8,9 +8,9 @@ defineProps({
 <template>
   <svg :width="size" :height="size" viewBox="0 0 200 200" aria-hidden="true">
     <g stroke-linecap="round" stroke-linejoin="round">
-      <!-- 圆猫耳 -->
-      <path d="M62 88 Q 44 42 70 47 Q 92 51 89 78 Z" fill="#ffd6e2" stroke="#f9718f" stroke-width="5" />
-      <path d="M138 88 Q 156 42 130 47 Q 108 51 111 78 Z" fill="#ffd6e2" stroke="#f9718f" stroke-width="5" />
+      <!-- 小圆猫耳:短短的,贴着头顶 -->
+      <path d="M48 104 Q 44 72 62 68 Q 80 64 84 90 Z" fill="#ffd6e2" stroke="#f9718f" stroke-width="5" />
+      <path d="M152 104 Q 156 72 138 68 Q 120 64 116 90 Z" fill="#ffd6e2" stroke="#f9718f" stroke-width="5" />
 
       <!-- 圆脑袋 -->
       <ellipse cx="100" cy="126" rx="64" ry="56" fill="#ffd6e2" stroke="#f9718f" stroke-width="5" />
