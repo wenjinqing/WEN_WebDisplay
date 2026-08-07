@@ -83,15 +83,19 @@ onUnmounted(() => clearInterval(timer))
   overflow: hidden;
 }
 
-/* 手绘云朵弹幕:SVG 云朵拉伸做底,字在云中 */
+/* 手绘云朵弹幕:胖云朵铺满底框,文字稳坐云中 */
 .dm {
   position: absolute;
   left: 100%;
   white-space: nowrap;
   font-size: 0.88rem;
+  line-height: 1.2;
   color: var(--pink-deep);
-  padding: 10px 26px 14px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 50' preserveAspectRatio='none'%3E%3Cpath d='M20 42 Q 8 42 8 33 Q 8 25 18 24 Q 20 13 32 15 Q 40 6 50 15 Q 61 13 62 24 Q 72 25 71 34 Q 70 42 58 42 Z' fill='%23ffffff' fill-opacity='0.94' stroke='%23f4a9c0' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E");
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 34px 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'%3E%3Cpath vector-effect='non-scaling-stroke' d='M18 52 Q 6 52 6 43 Q 6 35 15 34 Q 15 23 27 22 Q 30 10 44 12 Q 50 4 62 8 Q 74 5 78 15 Q 90 15 90 25 Q 97 28 96 37 Q 95 47 85 47 Q 83 54 72 53 L 22 53 Q 18 53 18 52 Z' fill='%23ffffff' fill-opacity='0.95' stroke='%23f4a9c0' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-size: 100% 100%;
   animation: fly linear forwards;
 }
