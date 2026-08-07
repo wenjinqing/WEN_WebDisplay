@@ -1,23 +1,14 @@
 <script setup>
-// 爱丽丝猪 & 猪咪跟屁虫 —— 插画版看板娘(irasutoya 免费素材)
-// 爱丽丝猪:跑步(散步) / 站立(待机) / 用电脑(赶稿) / 惊讶(被戳)
-// 猪咪:梦幻小猪,追爱丽丝、撒欢、被戳会跑
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+// 梦幻猫 & 猪咪跟屁虫 —— 插画版看板娘(irasutoya 梦幻可爱系列免费素材)
+// 猫:散步 / 待机 / 睡觉 / 被戳
+// 猪咪:追猫、撒欢、被戳会跑
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 
 const hidden = ref(localStorage.getItem('catcafe_pet_hide') === '1')
 
 const cat = reactive({ x: 15, dir: 1, state: 'walk', bubble: '', anim: '' })
 const pig = reactive({ x: 8, dir: 1, state: 'walk', mode: 'follow', bubble: '', anim: '' })
-// cat.state: walk 散步 | idle 待机 | sleep 赶稿(电脑猪)
 // pig.mode: follow 追 | sprint 撒欢
-
-const ALICE_IMG = {
-  walk: '/pets/pig-run.png',
-  idle: '/pets/pig-stand.png',
-  sleep: '/pets/pig-computer.png', // 睡觉?不,她在赶稿
-  poke: '/pets/pig-shock.png',
-}
-const catSrc = computed(() => ALICE_IMG[cat.anim || cat.state] || ALICE_IMG.idle)
 
 const CAT_SAYS = [
   '赶稿中……', '想喝奶茶', '猪咪们好呀~', '在写新坑!',
@@ -157,11 +148,11 @@ onUnmounted(() => {
         <span v-if="cat.bubble" class="pet-bubble">{{ cat.bubble }}</span>
       </transition>
       <button class="pet-hide" aria-label="让她们去休息" @click="hide">×</button>
-      <span v-if="cat.state === 'sleep'" class="work-tag">💻 赶稿中</span>
+      <span v-if="cat.state === 'sleep'" class="zzz">💤</span>
       <span class="flipper" :class="{ flip: cat.dir < 0 && cat.state === 'walk' }">
         <img
-          :src="catSrc"
-          alt="爱丽丝猪"
+          src="/pets/cat.png"
+          alt="看板猫"
           class="pet-img alice-img"
           :class="cat.anim || cat.state"
           draggable="false"
@@ -247,14 +238,11 @@ onUnmounted(() => {
   50% { transform: scaleY(0.95); }
 }
 
-/* 赶稿:轻微前倾敲键盘感 */
+/* 睡觉:压扁变暗 */
 .pet-img.sleep {
-  animation: typing 0.6s ease-in-out infinite;
-}
-
-@keyframes typing {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(1.5deg) translateY(1px); }
+  filter: brightness(0.85) saturate(0.85);
+  transform: scaleY(0.85);
+  transform-origin: bottom;
 }
 
 /* 被戳:左右晃 */
@@ -265,20 +253,6 @@ onUnmounted(() => {
 @keyframes wiggle {
   0%, 100% { transform: rotate(-6deg); }
   50% { transform: rotate(6deg); }
-}
-
-.work-tag {
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--pink-pale);
-  border-radius: 999px;
-  padding: 1px 10px;
-  white-space: nowrap;
-  color: var(--muted);
 }
 
 .zzz {
