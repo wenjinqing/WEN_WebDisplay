@@ -1,18 +1,19 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 
-// 弹幕:手绘云朵风。留言板内容飘过屏幕;没留言时飘店内氛围语
+// 弹幕:云朵以文字为主体(CSS 胶囊+鼓包,永远包住文字),分航道避免重叠
 const enabled = ref(
   (localStorage.getItem('catcafe_danmaku') ??
     (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'on')) === 'on'
 )
 
-const lanes = ref([]) // {id, text, top, duration}
+const LANES = 6 // 航道数
+const lanes = ref([]) // {id, text, lane, duration}
+const laneBusy = Array(LANES).fill(0) // 每条航道的解禁时间戳
 let timer = null
 let seq = 0
 let pool = []
 
-// 实在没留言时的氛围弹幕
 const FALLBACK = [
   '欢迎光临小涩猫咖啡厅~', '今天也在等更新', '猪咪路过~',
   '猫猫酱加油!', '前排兜售小鱼干', '这家店好温暖', '蹲一个新坑',
@@ -21,14 +22,27 @@ const FALLBACK = [
 function spawn() {
   if (!enabled.value || !pool.length) return
   const text = pool[Math.floor(Math.random() * pool.length)]
+
+  // 估算云朵宽度(px):字数×字宽 + 内边距
+  const estW = Math.min(text.length, 60) * 15 + 80
+  const vw = window.innerWidth
+  const duration = 11 + Math.random() * 8
+  // 云朵完全进入屏幕所需时间 = 占比 × 总时长;大云朵占航道更久
+  const entryMs = (estW / (vw + estW)) * duration * 1000 + 1200
+
+  // 找一条空闲航道;都忙就这波不发了(避免叠云)
+  const now = Date.now()
+  const free = []
+  for (let i = 0; i < LANES; i++) {
+    if (laneBusy[i] <= now) free.push(i)
+  }
+  if (!free.length) return
+  const lane = free[Math.floor(Math.random() * free.length)]
+  laneBusy[lane] = now + entryMs
+
   const id = ++seq
-  lanes.value.push({
-    id,
-    text,
-    top: 10 + Math.random() * 55,
-    duration: 11 + Math.random() * 8,
-  })
-  setTimeout(() => (lanes.value = lanes.value.filter((l) => l.id !== id)), 22000)
+  lanes.value.push({ id, text, lane, duration })
+  setTimeout(() => (lanes.value = lanes.value.filter((l) => l.id !== id)), (duration + 2) * 1000)
 }
 
 function toggle() {
@@ -38,7 +52,7 @@ function toggle() {
     lanes.value = []
   } else {
     spawn()
-    spawn() // 打开时立刻来两条,不用等
+    spawn()
   }
 }
 
@@ -52,7 +66,7 @@ onMounted(async () => {
   }
   if (!pool.length) pool = FALLBACK
   timer = setInterval(spawn, 2500)
-  if (enabled.value) spawn() // 首屏立刻来一条
+  if (enabled.value) spawn()
 })
 
 onUnmounted(() => clearInterval(timer))
@@ -64,8 +78,9 @@ onUnmounted(() => clearInterval(timer))
       v-for="l in lanes"
       :key="l.id"
       class="dm"
-      :style="{ top: l.top + '%', animationDuration: l.duration + 's' }"
+      :style="{ top: 8 + l.lane * 9 + '%', animationDuration: l.duration + 's' }"
     >
+      <i class="bump b1" /><i class="bump b2" /><i class="bump b3" />
       {{ l.text }}
     </span>
   </div>
@@ -83,7 +98,7 @@ onUnmounted(() => clearInterval(timer))
   overflow: hidden;
 }
 
-/* 手绘云朵弹幕:胖云朵铺满底框,文字稳坐云中 */
+/* 云朵 = 文字胶囊主体 + 顶部鼓包,文字多长云就多长 */
 .dm {
   position: absolute;
   left: 100%;
@@ -91,14 +106,25 @@ onUnmounted(() => clearInterval(timer))
   font-size: 0.88rem;
   line-height: 1.2;
   color: var(--pink-deep);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px 34px 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'%3E%3Cpath vector-effect='non-scaling-stroke' d='M18 52 Q 6 52 6 43 Q 6 35 15 34 Q 15 23 27 22 Q 30 10 44 12 Q 50 4 62 8 Q 74 5 78 15 Q 90 15 90 25 Q 97 28 96 37 Q 95 47 85 47 Q 83 54 72 53 L 22 53 Q 18 53 18 52 Z' fill='%23ffffff' fill-opacity='0.95' stroke='%23f4a9c0' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-size: 100% 100%;
+  background: rgba(255, 255, 255, 0.96);
+  border: 2.5px solid #f4a9c0;
+  border-radius: 999px;
+  padding: 9px 24px;
   animation: fly linear forwards;
 }
+
+/* 三个鼓包躲在胶囊后面,只露出上半圆 = 云朵轮廓 */
+.bump {
+  position: absolute;
+  background: inherit;
+  border: 2.5px solid #f4a9c0;
+  border-radius: 50%;
+  z-index: -1;
+}
+
+.b1 { width: 30px; height: 30px; top: -14px; left: 18%; }
+.b2 { width: 38px; height: 38px; top: -19px; left: 42%; }
+.b3 { width: 26px; height: 26px; top: -12px; left: 68%; }
 
 @keyframes fly {
   to {
