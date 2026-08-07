@@ -136,4 +136,20 @@ onUnmounted(() => {
 .pop-enter-active { transition: all 0.18s ease; }
 .pop-leave-active { transition: all 0.12s ease; }
 .pop-enter-from, .pop-leave-to { opacity: 0; transform: translateY(10px) scale(0.9); }
+
+@media (max-width: 720px) {
+  .fun-menu {
+    left: 14px;
+    bottom: 16px;
+  }
+  .fab {
+    width: 46px;
+    height: 46px;
+    font-size: 19px;
+  }
+  .menu-item {
+    padding: 6px 14px 6px 9px;
+    font-size: 0.8rem;
+  }
+}
 </style>
