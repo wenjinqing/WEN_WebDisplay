@@ -16,6 +16,8 @@ import BackToTop from './components/BackToTop.vue'
 import DanmakuLayer from './components/DanmakuLayer.vue'
 import PawRain from './components/PawRain.vue'
 import PixelPet from './components/PixelPet.vue'
+import WhackGame from './components/WhackGame.vue'
+import WeatherLayer from './components/WeatherLayer.vue'
 
 const readingNovel = ref(null)
 const commentingNovel = ref(null)
@@ -38,6 +40,8 @@ const commentingNovel = ref(null)
   <DanmakuLayer />
   <PawRain />
   <PixelPet />
+  <WhackGame />
+  <WeatherLayer />
   <NovelReader v-if="readingNovel" :novel="readingNovel" @close="readingNovel = null" />
   <CommentBox v-if="commentingNovel" :novel="commentingNovel" @close="commentingNovel = null" />
 </template>
