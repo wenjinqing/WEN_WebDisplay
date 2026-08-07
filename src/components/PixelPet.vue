@@ -273,19 +273,13 @@ function onPointerUp(e) {
     const p = heldPet
     heldPet = null
     warnedPig = false
-    p.held = false // 解除抓取标记
-    // 松手:原地垂直落下,落在哪就待在哪
-    p.state = 'walk'
-    setPath(p, p.x, 92, false)
-    const fallSpeed = setInterval(() => {
-      if (stepPath(p, 2.2)) {
-        clearInterval(fallSpeed)
-        p.state = 'idle' // 落地后就地休息,不跑开
-        p.anim = 'poke'
-        say(p, p === cat ? '下次轻点放!' : '落地啦!', 1800)
-        setTimeout(() => (p.anim = ''), 500)
-      }
-    }, 30)
+    p.held = false
+    // 松手:就地停在当前位置,不再移动
+    p.state = 'idle'
+    p.path = null
+    p.anim = 'poke'
+    say(p, p === cat ? '下次轻点放!' : '落地啦!', 1800)
+    setTimeout(() => (p.anim = ''), 500)
   }
   pendingGrab = null
 }
