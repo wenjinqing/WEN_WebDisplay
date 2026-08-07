@@ -127,6 +127,22 @@ function moveToward(p, speed) {
 function step() {
   if (hidden.value || isNight.value) return
 
+  // ===== 拖拽中的食物:对应的小吃货眼巴巴跟着跑 =====
+  if (dragFood.value) {
+    const hungry = dragFood.value.type === '🐟' ? cat : pig
+    if (!hungry.held) {
+      hungry.tx2 = dragFood.value.x
+      hungry.ty2 = Math.min(dragFood.value.y + 6, 92)
+      const dist = Math.hypot(hungry.tx2 - hungry.x, hungry.ty2 - hungry.y)
+      if (dist > 2) {
+        hungry.state = 'walk'
+        moveToward(hungry, 0.5)
+      } else {
+        hungry.state = 'idle' // 蹲在食物下面等
+      }
+    }
+  }
+
   // ===== 猫 =====
   if (!cat.held) {
     if (cat.state === 'chase') {
@@ -214,6 +230,12 @@ function maybeBubble() {
 function startFoodDrag(e) {
   const type = Math.random() < 0.5 ? '🐟' : '🍰'
   dragFood.value = { type, x: px2vw(e.clientX), y: px2vh(e.clientY), moved: false }
+  // 对应的小吃货立刻注意到食物
+  const target = type === '🐟' ? cat : pig
+  if (!target.held && target.state !== 'sleep') {
+    target.state = 'walk'
+    say(target, type === '🐟' ? '鱼!是鱼!' : '蛋糕!给我给我!', 2000)
+  }
 }
 
 function px2vw(px) { return (px / window.innerWidth) * 100 }
