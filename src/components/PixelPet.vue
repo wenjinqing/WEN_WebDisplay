@@ -1,20 +1,20 @@
 <script setup>
-// 猫咖看板娘引擎 v3 —— 全屏漫游 / 投喂 / 小剧场 / 追鼠标 / 捡鱼干 / 深夜作息
+// 猫咖看板娘引擎 v4 —— 曲线漫游 / 拖拽投喂 / 可抓取小人 / 小剧场 / 追鼠标 / 捡鱼干 / 深夜作息
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 
 const hidden = ref(localStorage.getItem('catcafe_pet_hide') === '1')
 const isNight = ref(false)
 
-// 坐标:x 用 vw,y 用 vh(全屏自由移动)
-const cat = reactive({ x: 20, y: 90, dir: 1, state: 'walk', bubble: '', anim: '', tx: 50, ty: 90, food: null })
-const pig = reactive({ x: 12, y: 90, dir: 1, state: 'walk', mode: 'follow', bubble: '', anim: '', tx: 40, ty: 90, food: null })
-// state: walk | idle | sleep | chase(猫)
-// pig.mode: follow | sprint
+const cat = reactive({ x: 20, y: 92, dir: 1, state: 'walk', bubble: '', anim: '', path: null, food: null, held: false })
+const pig = reactive({ x: 12, y: 92, dir: 1, state: 'walk', mode: 'follow', bubble: '', anim: '', food: null, held: false, wobble: 0 })
+// state: walk | idle | sleep | chase(猫) | held(被抓)
 
 const CAT_SAYS = ['赶稿中……', '想喝奶茶', '猪咪们好呀~', '在写新坑!', '今天也要加油喵', '催更?在写了在写了', '巡视店铺中', '刚才那句写得不错', '想吃草莓蛋糕', '被发现了?']
 const PIG_SAYS = ['等等我!', '猪咪来咯~', '拱拱', '今天也很乖', '猫猫酱慢点!', '哼唧哼唧', '贴贴!']
 const CAT_POKED = ['喵?叫我?', '在呢在呢!', '怎么啦~', '摸我就不用赶稿了?']
 const PIG_POKED = ['哼唧!', '拱你一下!', '猪咪超乖的!', '干嘛啦~']
+const CAT_HELD = ['哇啊!放我下来!', '脚够不着地啦!', '你要带我去哪!']
+const PIG_HELD = ['哼唧哼唧!', '飞起来了?!', '猪咪害怕!']
 const DIALOGUES = [
   ['新坑写不出来……', '摸摸,不急不急'],
   ['猪咪,我饿了', '我也饿了!', '？'],
@@ -23,16 +23,22 @@ const DIALOGUES = [
   ['别跟着我啦', '就要跟!'],
 ]
 
-const foods = ref([]) // {id, x, y, type:'🐟'|'🍰'}
-const cracker = ref(null) // 猪咪拱出来的鱼干 {x, y}
+const foods = ref([])
+const cracker = ref(null)
 const feeds = ref(0)
 const toast = ref('')
+const dragFood = ref(null) // 正在拖拽的食物 {type, x, y}
 let foodSeq = 0
 let mouse = { x: 50, y: 90 }
 let mouseTrail = []
 let chaseUntil = 0
+let heldPet = null
+let pendingGrab = null // {pet, x, y} 按下但还没拖动
+let grabOffset = { x: 0, y: 0 }
+let warnedPig = false
 
-let tick, stateTimer, bubbleTimer, nightTimer, bubbleClear = { cat: null, pig: null }, toastTimer, crackerTimer
+let tick, stateTimer, bubbleTimer, nightTimer, crackerTimer, toastTimer
+let bubbleClear = { cat: null, pig: null }
 
 function say(who, text, ms = 3000) {
   who.bubble = text
@@ -47,40 +53,69 @@ function showToast(text) {
   toastTimer = setTimeout(() => (toast.value = ''), 2600)
 }
 
-// ===== 目标选择:底部溜达 / 中场巡视 / 趴卡片 =====
+// ===== 曲线路径(二次贝塞尔) =====
+function setPath(p, tx, ty, curve = true) {
+  const x0 = p.x, y0 = p.y
+  const dist = Math.hypot(tx - x0, ty - y0)
+  let cx = (x0 + tx) / 2, cy = (y0 + ty) / 2
+  if (curve && dist > 8) {
+    // 垂直于路径方向的随机偏移 → 弧线
+    const nx = -(ty - y0) / dist
+    const ny = (tx - x0) / dist
+    const bend = (Math.random() - 0.5) * dist * 0.9
+    cx += nx * bend
+    cy += ny * bend * 0.4 // 纵向弯一点就行
+    cy = Math.max(15, Math.min(94, cy))
+  }
+  p.path = { x0, y0, cx, cy, x1: tx, y1: ty, t: 0, len: dist * 1.25 }
+}
+
+function stepPath(p, speed) {
+  if (!p.path) return true
+  p.path.t += speed / Math.max(p.path.len, 1)
+  if (p.path.t >= 1) {
+    p.x = p.path.x1
+    p.y = p.path.y1
+    p.path = null
+    return true
+  }
+  const t = p.path.t
+  const { x0, y0, cx, cy, x1, y1 } = p.path
+  const nx = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * cx + t * t * x1
+  const ny = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * cy + t * t * y1
+  p.dir = nx < p.x - 0.05 ? -1 : nx > p.x + 0.05 ? 1 : p.dir
+  p.x = nx
+  p.y = ny
+  return false
+}
+
 function pickTarget(p) {
   const r = Math.random()
-  if (r < 0.6) {
-    p.tx = 5 + Math.random() * 85
-    p.ty = 86 + Math.random() * 8
+  if (r < 0.55) {
+    setPath(p, 5 + Math.random() * 85, 86 + Math.random() * 8)
   } else if (r < 0.8) {
-    p.tx = 10 + Math.random() * 75
-    p.ty = 35 + Math.random() * 40 // 中场巡视
+    setPath(p, 10 + Math.random() * 75, 35 + Math.random() * 40) // 中场巡视
   } else {
-    // 趴卡片:找一个视口内的大卡片,坐在它顶边上
+    // 趴卡片
     const els = document.querySelectorAll('.menu-board, .board, .club-card, .send-card, .fortune')
     const seats = []
     els.forEach((el) => {
       const rect = el.getBoundingClientRect()
-      if (rect.top > 120 && rect.top < window.innerHeight - 160 && rect.width > 300) {
-        seats.push(rect)
-      }
+      if (rect.top > 120 && rect.top < window.innerHeight - 160 && rect.width > 300) seats.push(rect)
     })
     if (seats.length) {
       const s = seats[Math.floor(Math.random() * seats.length)]
       const petH = (100 / window.innerHeight) * 100
-      p.tx = ((s.left + Math.random() * s.width * 0.8) / window.innerWidth) * 100
-      p.ty = (s.top / window.innerHeight) * 100 - petH + 2
+      setPath(p, ((s.left + Math.random() * s.width * 0.8) / window.innerWidth) * 100, (s.top / window.innerHeight) * 100 - petH + 2)
       return
     }
-    p.tx = 10 + Math.random() * 75
-    p.ty = 86 + Math.random() * 8
+    setPath(p, 10 + Math.random() * 75, 86 + Math.random() * 8)
   }
 }
 
 function moveToward(p, speed) {
-  const dx = p.tx - p.x
-  const dy = p.ty - p.y
+  const dx = p.tx2 - p.x
+  const dy = p.ty2 - p.y
   const dist = Math.hypot(dx, dy)
   if (dist < 1) return true
   p.dir = dx < -0.5 ? -1 : dx > 0.5 ? 1 : p.dir
@@ -90,68 +125,68 @@ function moveToward(p, speed) {
 }
 
 function step() {
-  if (hidden.value) return
-  if (isNight.value) return // 夜里都睡着
+  if (hidden.value || isNight.value) return
 
   // ===== 猫 =====
-  if (cat.state === 'chase') {
-    cat.tx = mouse.x
-    cat.ty = Math.min(mouse.y, 92)
-    if (moveToward(cat, 0.7)) {
-      say(cat, '抓到啦!', 1500)
-      cat.state = 'idle'
-      setTimeout(() => (cat.state = 'walk'), 1500)
-    } else if (Date.now() > chaseUntil) {
-      cat.state = 'walk'
-      pickTarget(cat)
+  if (!cat.held) {
+    if (cat.state === 'chase') {
+      cat.tx2 = mouse.x
+      cat.ty2 = Math.min(mouse.y, 92)
+      if (moveToward(cat, 0.7)) {
+        say(cat, '抓到啦!', 1500)
+        cat.state = 'idle'
+        setTimeout(() => (cat.state = 'walk'), 1500)
+      } else if (Date.now() > chaseUntil) {
+        cat.state = 'walk'
+        pickTarget(cat)
+      }
+    } else if (cat.state === 'walk') {
+      const arrived = stepPath(cat, cat.food ? 0.55 : 0.28)
+      if (cat.food && arrived) eatFood(cat)
+      else if (arrived) cat.state = Math.random() < 0.5 ? 'idle' : 'walk'
     }
-  } else if (cat.state === 'walk') {
-    const arrived = moveToward(cat, cat.food ? 0.55 : 0.28)
-    if (cat.food && arrived) eatFood(cat)
-    else if (arrived) cat.state = Math.random() < 0.5 ? 'idle' : 'walk'
   }
 
-  // ===== 猪 =====
-  if (pig.food) {
-    if (moveToward(pig, 0.5)) eatFood(pig)
-  } else if (pig.mode === 'follow') {
-    pig.tx = cat.x - cat.dir * 8
-    pig.ty = cat.y + 3
-    const dist = Math.hypot(pig.tx - pig.x, pig.ty - pig.y)
-    if (dist > 2) {
+  // ===== 猪(跟随带摆动,像撒欢的小跟班) =====
+  if (!pig.held) {
+    pig.wobble += 0.15
+    if (pig.food) {
+      if (stepPath(pig, 0.5)) eatFood(pig)
+    } else if (pig.mode === 'follow') {
+      pig.tx2 = cat.x - cat.dir * 8
+      pig.ty2 = Math.min(cat.y + 3 + Math.sin(pig.wobble) * 1.5, 94)
+      const dist = Math.hypot(pig.tx2 - pig.x, pig.ty2 - pig.y)
+      if (dist > 2) {
+        pig.state = 'walk'
+        moveToward(pig, dist > 20 ? 0.5 : 0.24)
+      } else if (cat.state !== 'walk' && cat.state !== 'chase') {
+        pig.state = 'idle'
+      }
+    } else if (pig.mode === 'sprint') {
       pig.state = 'walk'
-      moveToward(pig, dist > 20 ? 0.5 : 0.24)
-    } else if (cat.state !== 'walk' && cat.state !== 'chase') {
-      pig.state = 'idle'
+      if (stepPath(pig, 0.55)) pig.mode = 'follow'
     }
-  } else if (pig.mode === 'sprint') {
-    pig.state = 'walk'
-    if (moveToward(pig, 0.55)) pig.mode = 'follow'
   }
 }
 
 function maybeChange() {
   if (hidden.value || isNight.value) return
   const r = Math.random()
-  // 猫的状态机
-  if (cat.state === 'walk' && !cat.food) {
+  if (cat.state === 'walk' && !cat.food && !cat.held) {
     if (r < 0.18) cat.state = 'idle'
     else if (r < 0.26) cat.state = 'sleep'
     else if (r < 0.7) pickTarget(cat)
-  } else if (cat.state !== 'chase' && !cat.food && r < 0.55) {
+  } else if (cat.state !== 'chase' && !cat.food && !cat.held && r < 0.55) {
     cat.state = 'walk'
     pickTarget(cat)
   }
-  // 猪的模式
   const r2 = Math.random()
-  if (pig.mode === 'follow' && !pig.food && r2 < 0.12) {
+  if (pig.mode === 'follow' && !pig.food && !pig.held && r2 < 0.12) {
     pig.mode = 'sprint'
-    pig.tx = 5 + Math.random() * 85
-    pig.ty = 50 + Math.random() * 44
+    setPath(pig, 5 + Math.random() * 85, 50 + Math.random() * 44)
     say(pig, '撒欢啦——!', 2000)
     setTimeout(() => (pig.mode = 'follow'), 2600)
   }
-  // 猪咪拱鱼干
   if (!cracker.value && pig.state === 'walk' && r2 > 0.94) {
     cracker.value = { x: pig.x, y: pig.y - 4 }
     say(pig, '咦?有鱼干!', 2000)
@@ -164,7 +199,6 @@ function maybeBubble() {
   const close = Math.hypot(cat.x - pig.x, cat.y - pig.y) < 12
   const r = Math.random()
   if (close && !cat.bubble && !pig.bubble && r < 0.3) {
-    // 小剧场
     const d = DIALOGUES[Math.floor(Math.random() * DIALOGUES.length)]
     say(cat, d[0], 2600)
     setTimeout(() => say(pig, d[1], 2600), 1400)
@@ -176,20 +210,84 @@ function maybeBubble() {
   }
 }
 
-// ===== 投喂 =====
-function dropFood() {
+// ===== 拖拽投喂 =====
+function startFoodDrag(e) {
   const type = Math.random() < 0.5 ? '🐟' : '🍰'
-  const food = {
-    id: ++foodSeq,
-    type,
-    x: 20 + Math.random() * 55,
-    y: 76 + Math.random() * 14,
+  dragFood.value = { type, x: px2vw(e.clientX), y: px2vh(e.clientY), moved: false }
+}
+
+function px2vw(px) { return (px / window.innerWidth) * 100 }
+function px2vh(px) { return (px / window.innerHeight) * 100 }
+
+function onPointerMove(e) {
+  const x = px2vw(e.clientX), y = px2vh(e.clientY)
+  if (dragFood.value) {
+    dragFood.value.x = x
+    dragFood.value.y = y
+    dragFood.value.moved = true
   }
-  foods.value.push(food)
-  const target = type === '🐟' ? cat : pig // 猫抢鱼,猪抢蛋糕
-  target.food = food
-  target.state = 'walk'
-  say(target, type === '🐟' ? '是鱼!冲!' : '蛋糕!我的!', 2000)
+  // 按下后移动超过阈值才算"抓起来"
+  if (pendingGrab && !heldPet) {
+    if (Math.hypot(x - pendingGrab.x, y - pendingGrab.y) > 1.5) {
+      const p = pendingGrab.pet
+      heldPet = p
+      p.held = true
+      p.state = 'held'
+      p.path = null
+      grabOffset = { x: p.x - pendingGrab.x, y: p.y - pendingGrab.y }
+      say(p, (p === cat ? CAT_HELD : PIG_HELD)[Math.floor(Math.random() * 3)], 2000)
+    }
+  }
+  if (heldPet) {
+    heldPet.x = x + grabOffset.x
+    heldPet.y = Math.max(12, y + grabOffset.y)
+    // 猫被抓时,猪咪会着急
+    if (heldPet === cat && !warnedPig) {
+      warnedPig = true
+      say(pig, '放下她!!', 2000)
+    }
+    onMouse(e)
+    return
+  }
+  onMouse(e)
+}
+
+function onPointerUp(e) {
+  if (dragFood.value) {
+    const f = dragFood.value
+    dragFood.value = null
+    const food = {
+      id: ++foodSeq,
+      type: f.type,
+      x: f.moved ? Math.max(3, Math.min(95, f.x)) : 20 + Math.random() * 55,
+      y: f.moved ? Math.max(15, Math.min(93, f.y)) : 76 + Math.random() * 14,
+    }
+    foods.value.push(food)
+    const target = f.type === '🐟' ? cat : pig
+    target.food = food
+    target.state = 'walk'
+    setPath(target, food.x, food.y)
+    say(target, f.type === '🐟' ? '是鱼!冲!' : '蛋糕!我的!', 2000)
+  }
+  if (heldPet) {
+    const p = heldPet
+    heldPet = null
+    warnedPig = false
+    p.held = false // 解除抓取标记
+    // 松手:掉回地面
+    p.state = 'walk'
+    setPath(p, Math.max(3, Math.min(95, p.x)), 92, false)
+    const fallSpeed = setInterval(() => {
+      if (stepPath(p, 2.2)) {
+        clearInterval(fallSpeed)
+        p.anim = 'poke'
+        say(p, p === cat ? '下次轻点放!' : '落地啦!', 1800)
+        setTimeout(() => (p.anim = ''), 500)
+        pickTarget(p)
+      }
+    }, 30)
+  }
+  pendingGrab = null
 }
 
 function eatFood(p) {
@@ -204,7 +302,12 @@ function eatFood(p) {
     .catch(() => {})
 }
 
-// ===== 捡鱼干 =====
+// ===== 抓取小人(按下先记位置,拖动才生效) =====
+function grabPet(p, e) {
+  if (isNight.value) return
+  pendingGrab = { pet: p, x: px2vw(e.clientX), y: px2vh(e.clientY) }
+}
+
 async function pickCracker() {
   cracker.value = null
   clearTimeout(crackerTimer)
@@ -227,8 +330,8 @@ async function pickCracker() {
   }
 }
 
-// ===== 戳一戳 =====
 function pokeCat() {
+  if (cat.held) return
   if (cat.state === 'sleep') {
     say(cat, '唔……再睡五分钟', 2200)
     return
@@ -239,32 +342,27 @@ function pokeCat() {
 }
 
 function pokePig() {
+  if (pig.held) return
   say(pig, PIG_POKED[Math.floor(Math.random() * PIG_POKED.length)], 2200)
   pig.anim = 'poke'
   setTimeout(() => (pig.anim = ''), 900)
   pig.mode = 'sprint'
-  pig.tx = pig.x > cat.x ? Math.min(pig.x + 20, 90) : Math.max(pig.x - 20, 5)
-  pig.ty = pig.y
+  setPath(pig, pig.x > cat.x ? Math.min(pig.x + 20, 90) : Math.max(pig.x - 20, 5), pig.y, false)
   setTimeout(() => (pig.mode = 'follow'), 1500)
 }
 
-// ===== 鼠标追踪(快速晃动触发猫扑) =====
 function onMouse(e) {
-  mouse = {
-    x: (e.clientX / window.innerWidth) * 100,
-    y: (e.clientY / window.innerHeight) * 100,
-  }
+  mouse = { x: px2vw(e.clientX), y: px2vh(e.clientY) }
   const now = Date.now()
-  mouseTrail.push({ x: mouse.x, t: now, dir: 0 })
+  mouseTrail.push({ x: mouse.x, t: now })
   mouseTrail = mouseTrail.filter((p) => now - p.t < 1200)
-  // 统计方向变化
   let turns = 0
   for (let i = 2; i < mouseTrail.length; i++) {
     const d1 = mouseTrail[i - 1].x - mouseTrail[i - 2].x
     const d2 = mouseTrail[i].x - mouseTrail[i - 1].x
     if (d1 * d2 < 0) turns++
   }
-  if (turns >= 6 && cat.state === 'walk' && !cat.food && !isNight.value) {
+  if (turns >= 6 && cat.state === 'walk' && !cat.food && !cat.held && !isNight.value) {
     cat.state = 'chase'
     chaseUntil = now + 3000
     say(cat, '别跑!', 1500)
@@ -272,11 +370,10 @@ function onMouse(e) {
   }
 }
 
-// 滚动时:不在底部的回去底部
 function onScroll() {
   ;[cat, pig].forEach((p) => {
-    if (p.y < 80 && !p.food) {
-      p.ty = 86 + Math.random() * 8
+    if (p.y < 80 && !p.food && !p.held) {
+      setPath(p, p.x, 86 + Math.random() * 8)
       if (p.state !== 'chase') p.state = 'walk'
     }
   })
@@ -286,9 +383,8 @@ function checkNight() {
   const h = new Date().getHours()
   const night = h >= 0 && h < 7
   if (night && !isNight.value) {
-    // 一起趴到左下角睡觉
-    Object.assign(cat, { x: 8, y: 90, tx: 8, ty: 90, state: 'sleep', food: null })
-    Object.assign(pig, { x: 15, y: 92, tx: 15, ty: 92, state: 'sleep', food: null, mode: 'follow' })
+    Object.assign(cat, { x: 8, y: 92, state: 'sleep', food: null, path: null })
+    Object.assign(pig, { x: 15, y: 94, state: 'sleep', food: null, path: null, mode: 'follow' })
     foods.value = []
     cracker.value = null
   } else if (!night && isNight.value) {
@@ -310,18 +406,20 @@ function show() {
 }
 
 onMounted(() => {
-  window.addEventListener('mousemove', onMouse, { passive: true })
+  window.addEventListener('pointermove', onPointerMove, { passive: true })
+  window.addEventListener('pointerup', onPointerUp)
   window.addEventListener('scroll', onScroll, { passive: true })
-  tick = setInterval(step, 60)
+  tick = setInterval(step, 50)
   stateTimer = setInterval(maybeChange, 4000)
   bubbleTimer = setInterval(maybeBubble, 8000)
   nightTimer = setInterval(checkNight, 30000)
   checkNight()
-  fetch('/api/pet').then((r) => r.json()).catch(() => {})
+  pickTarget(cat)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('mousemove', onMouse)
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
   window.removeEventListener('scroll', onScroll)
   clearInterval(tick)
   clearInterval(stateTimer)
@@ -335,22 +433,22 @@ onUnmounted(() => {
   <button v-if="hidden" class="pet-restore" aria-label="召回看板娘" @click="show">🐾</button>
 
   <template v-else>
-    <!-- 投喂按钮 -->
-    <button class="feed-btn" @click="dropFood">
-      🍰 投喂{{ feeds ? ` · 已被喂${feeds}次` : '' }}
+    <!-- 投喂按钮:拖出去丢食物 -->
+    <button class="feed-btn" @pointerdown.prevent="startFoodDrag">
+      🍰 按住拖出去投喂{{ feeds ? ` · 已被喂${feeds}次` : '' }}
     </button>
 
-    <!-- 地上的食物 -->
-    <span
-      v-for="f in foods"
-      :key="f.id"
-      class="food"
-      :style="{ left: f.x + 'vw', top: f.y + 'vh' }"
-    >
+    <!-- 拖拽中的食物 -->
+    <span v-if="dragFood" class="food ghost" :style="{ left: dragFood.x + 'vw', top: dragFood.y + 'vh' }">
+      {{ dragFood.type }}
+    </span>
+
+    <!-- 落地的食物 -->
+    <span v-for="f in foods" :key="f.id" class="food" :style="{ left: f.x + 'vw', top: f.y + 'vh' }">
       {{ f.type }}
     </span>
 
-    <!-- 猪咪拱出的鱼干(5秒消失,点它+5鱼干) -->
+    <!-- 猪咪拱出的鱼干 -->
     <button
       v-if="cracker"
       class="cracker"
@@ -360,8 +458,8 @@ onUnmounted(() => {
       🐟✨
     </button>
 
-    <!-- 看板猫 -->
-    <div class="pet" :style="{ left: cat.x + 'vw', top: cat.y + 'vh' }">
+    <!-- 看板猫(可拖拽) -->
+    <div class="pet" :class="{ held: cat.held }" :style="{ left: cat.x + 'vw', top: cat.y + 'vh' }">
       <transition name="bub">
         <span v-if="cat.bubble" class="pet-bubble">{{ cat.bubble }}</span>
       </transition>
@@ -376,18 +474,19 @@ onUnmounted(() => {
           draggable="false"
           role="button"
           tabindex="0"
+          @pointerdown.prevent="grabPet(cat, $event)"
           @click="pokeCat"
           @keyup.enter="pokeCat"
         />
       </span>
     </div>
 
-    <!-- 猪咪跟屁虫 -->
-    <div class="pet pig" :style="{ left: pig.x + 'vw', top: pig.y + 'vh' }">
+    <!-- 猪咪跟屁虫(可拖拽) -->
+    <div class="pet pig" :class="{ held: pig.held }" :style="{ left: pig.x + 'vw', top: pig.y + 'vh' }">
       <transition name="bub">
         <span v-if="pig.bubble" class="pet-bubble pig-bubble">{{ pig.bubble }}</span>
       </transition>
-      <span v-if="pig.state === 'sleep' || (pig.state === 'idle' && pig.mode === 'follow')" class="zzz">💤</span>
+      <span v-if="pig.state === 'sleep'" class="zzz">💤</span>
       <span class="flipper" :class="{ flip: pig.dir < 0 }">
         <img
           src="/pets/pigmi.png"
@@ -397,6 +496,7 @@ onUnmounted(() => {
           draggable="false"
           role="button"
           tabindex="0"
+          @pointerdown.prevent="grabPet(pig, $event)"
           @click="pokePig"
           @keyup.enter="pokePig"
         />
@@ -414,8 +514,23 @@ onUnmounted(() => {
   position: fixed;
   z-index: 55;
   pointer-events: none;
-  transition: left 0.06s linear, top 0.06s linear;
-  transform: translateY(-100%); /* 坐标=落脚点,身子在上方 */
+  transition: left 0.05s linear, top 0.05s linear;
+  transform: translateY(-100%);
+}
+
+.pet.held {
+  transition: none; /* 拖拽时跟手 */
+  z-index: 58;
+}
+
+.pet.held .pet-img {
+  cursor: grabbing;
+  animation: heldShake 0.25s ease-in-out infinite;
+}
+
+@keyframes heldShake {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
 }
 
 .flipper {
@@ -428,14 +543,14 @@ onUnmounted(() => {
 
 .pet-img {
   pointer-events: auto;
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
+  touch-action: none; /* 手机上可拖不滚动 */
 }
 
 .alice-img { height: 88px; }
 .pigmi-img { height: 60px; }
 
-/* 走路 */
 .pet-img.walk {
   animation: walkBob 0.4s ease-in-out infinite;
 }
@@ -444,12 +559,10 @@ onUnmounted(() => {
   50% { transform: translateY(-6px) rotate(3deg); }
 }
 
-/* 追鼠标:更急的碎步 */
 .pet-img.chase {
   animation: walkBob 0.25s ease-in-out infinite;
 }
 
-/* 待机呼吸 */
 .pet-img.idle {
   animation: breathe 2.4s ease-in-out infinite;
 }
@@ -458,14 +571,12 @@ onUnmounted(() => {
   50% { transform: scaleY(0.95); }
 }
 
-/* 睡觉 */
 .pet-img.sleep {
   filter: brightness(0.85) saturate(0.85);
   transform: scaleY(0.85);
   transform-origin: bottom;
 }
 
-/* 被戳 */
 .pet-img.poke {
   animation: wiggle 0.3s ease-in-out infinite;
 }
@@ -474,7 +585,6 @@ onUnmounted(() => {
   50% { transform: rotate(6deg); }
 }
 
-/* 吃东西 */
 .pet-img.eat {
   animation: munch 0.3s ease-in-out infinite;
 }
@@ -568,9 +678,11 @@ onUnmounted(() => {
   border-radius: 999px;
   padding: 8px 16px;
   font-size: 0.85rem;
-  cursor: pointer;
+  cursor: grab;
   box-shadow: var(--shadow);
   transition: transform 0.15s;
+  touch-action: none;
+  user-select: none;
 }
 
 .feed-btn:hover {
@@ -585,6 +697,13 @@ onUnmounted(() => {
   transform: translate(-50%, -100%);
   animation: foodDrop 0.3s ease-out;
   pointer-events: none;
+}
+
+.food.ghost {
+  z-index: 65;
+  font-size: 32px;
+  animation: none;
+  opacity: 0.9;
 }
 
 @keyframes foodDrop {
