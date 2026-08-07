@@ -23,11 +23,11 @@ function spawn() {
   if (!enabled.value || !pool.length) return
   const text = pool[Math.floor(Math.random() * pool.length)]
 
-  // 估算云朵宽度(px):字数×字宽 + 内边距
-  const estW = Math.min(text.length, 60) * 15 + 80
+  // 字数 → 云大小与速度:字越多云越肥、飘得越慢
+  const len = Math.min(text.length, 60)
+  const duration = 12 + len * 0.35 // 长文慢慢飘
+  const estW = Math.min(len, 20) * 15 + 90 // 折行后宽度有上限
   const vw = window.innerWidth
-  const duration = 11 + Math.random() * 8
-  // 云朵完全进入屏幕所需时间 = 占比 × 总时长;大云朵占航道更久
   const entryMs = (estW / (vw + estW)) * duration * 1000 + 1200
 
   // 找一条空闲航道;都忙就这波不发了(避免叠云)
@@ -80,7 +80,6 @@ onUnmounted(() => clearInterval(timer))
       class="dm"
       :style="{ top: 8 + l.lane * 9 + '%', animationDuration: l.duration + 's' }"
     >
-      <i class="bump b1" /><i class="bump b2" /><i class="bump b3" />
       {{ l.text }}
     </span>
   </div>
@@ -98,33 +97,23 @@ onUnmounted(() => clearInterval(timer))
   overflow: hidden;
 }
 
-/* 云朵 = 文字胶囊主体 + 顶部鼓包,文字多长云就多长 */
+/* 手绘云朵弹幕:云朵随内容伸缩,长文折行云变肥 */
 .dm {
   position: absolute;
   left: 100%;
-  white-space: nowrap;
+  width: max-content; /* 先按文字自然宽度,超上限才折行 */
+  max-width: 230px;
+  white-space: normal;
+  word-break: break-all;
+  text-align: center;
   font-size: 0.88rem;
-  line-height: 1.2;
+  line-height: 1.45;
   color: var(--pink-deep);
-  background: rgba(255, 255, 255, 0.96);
-  border: 2.5px solid #f4a9c0;
-  border-radius: 999px;
-  padding: 9px 24px;
+  padding: 16px 36px 18px; /* 文字锁定在云朵中段安全区 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 50' preserveAspectRatio='none'%3E%3Cpath d='M20 42 Q 8 42 8 33 Q 8 25 18 24 Q 20 13 32 15 Q 40 6 50 15 Q 61 13 62 24 Q 72 25 71 34 Q 70 42 58 42 Z' fill='%23ffffff' fill-opacity='0.94' stroke='%23f4a9c0' stroke-width='2.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
   animation: fly linear forwards;
 }
-
-/* 三个鼓包躲在胶囊后面,只露出上半圆 = 云朵轮廓 */
-.bump {
-  position: absolute;
-  background: inherit;
-  border: 2.5px solid #f4a9c0;
-  border-radius: 50%;
-  z-index: -1;
-}
-
-.b1 { width: 30px; height: 30px; top: -14px; left: 18%; }
-.b2 { width: 38px; height: 38px; top: -19px; left: 42%; }
-.b3 { width: 26px; height: 26px; top: -12px; left: 68%; }
 
 @keyframes fly {
   to {
