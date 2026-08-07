@@ -127,6 +127,16 @@ function moveToward(p, speed) {
 function step() {
   if (hidden.value || isNight.value) return
 
+  // ===== 食物最高优先级:场上有食物而吃货没锁定时,立刻锁定冲过去 =====
+  for (const f of foods.value) {
+    const hungry = f.type === '🐟' ? cat : pig
+    if (!hungry.held && !hungry.food) {
+      hungry.food = f
+      hungry.state = 'walk'
+      setPath(hungry, f.x, f.y, false)
+    }
+  }
+
   // ===== 拖拽中的食物:对应的小吃货眼巴巴跟着跑 =====
   if (dragFood.value) {
     const hungry = dragFood.value.type === '🐟' ? cat : pig
@@ -157,7 +167,7 @@ function step() {
         pickTarget(cat)
       }
     } else if (cat.state === 'walk') {
-      const arrived = stepPath(cat, cat.food ? 0.55 : 0.28)
+      const arrived = stepPath(cat, cat.food ? 0.8 : 0.28) // 干饭速度拉满
       if (cat.food && arrived) eatFood(cat)
       else if (arrived) cat.state = Math.random() < 0.5 ? 'idle' : 'walk'
     }
@@ -167,7 +177,7 @@ function step() {
   if (!pig.held) {
     pig.wobble += 0.15
     if (pig.food) {
-      if (stepPath(pig, 0.5)) eatFood(pig)
+      if (stepPath(pig, 0.75)) eatFood(pig) // 干饭速度拉满
     } else if (pig.mode === 'follow') {
       pig.tx2 = cat.x - cat.dir * 8
       pig.ty2 = Math.min(cat.y + 3 + Math.sin(pig.wobble) * 1.5, 94)
@@ -296,12 +306,19 @@ function onPointerUp(e) {
     heldPet = null
     warnedPig = false
     p.held = false
-    // 松手:就地停在当前位置,不再移动
-    p.state = 'idle'
     p.path = null
-    p.anim = 'poke'
-    say(p, p === cat ? '下次轻点放!' : '落地啦!', 1800)
-    setTimeout(() => (p.anim = ''), 500)
+    if (p.food) {
+      // 场上有它的食物:放下立刻直奔食物
+      p.state = 'walk'
+      setPath(p, p.food.x, p.food.y, false)
+      say(p, p === cat ? '鱼干等我!' : '蛋糕等我!', 1500)
+    } else {
+      // 没有食物:就地停住
+      p.state = 'idle'
+      p.anim = 'poke'
+      say(p, p === cat ? '下次轻点放!' : '落地啦!', 1800)
+      setTimeout(() => (p.anim = ''), 500)
+    }
   }
   pendingGrab = null
 }
