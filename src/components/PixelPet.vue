@@ -4,6 +4,10 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 
 const hidden = ref(localStorage.getItem('catcafe_pet_hide') === '1')
 const isNight = ref(false)
+const laserOn = ref(false)   // 激光笔模式
+const gameMode = ref(false)  // 拍猪咪游戏中,看板娘回避
+const loveHearts = ref([])   // 贴贴爱心 {id, x, y}
+let togetherUntil = 0        // 贴贴截止时间
 
 const cat = reactive({ x: 20, y: 92, dir: 1, state: 'walk', bubble: '', anim: '', path: null, food: null, held: false })
 const pig = reactive({ x: 12, y: 92, dir: 1, state: 'walk', mode: 'follow', bubble: '', anim: '', food: null, held: false, wobble: 0 })
@@ -37,8 +41,26 @@ let pendingGrab = null // {pet, x, y} 按下但还没拖动
 let grabOffset = { x: 0, y: 0 }
 let warnedPig = false
 
-let tick, stateTimer, bubbleTimer, nightTimer, crackerTimer, toastTimer
+let tick, stateTimer, bubbleTimer, nightTimer, crackerTimer, toastTimer, heartSeq = 0
 let bubbleClear = { cat: null, pig: null }
+
+function spawnHeart(x, y) {
+  const id = ++heartSeq
+  loveHearts.value.push({ id, x, y })
+  setTimeout(() => (loveHearts.value = loveHearts.value.filter((h) => h.id !== id)), 1600)
+}
+
+// 贴贴检测:拖动任意一只松手时,若两只靠得近 → 贴贴 8 秒
+function tryTogether() {
+  const dist = Math.hypot(cat.x - pig.x, cat.y - pig.y)
+  if (dist < 9 && pig.mode !== 'together' && !isNight.value) {
+    pig.mode = 'together'
+    togetherUntil = Date.now() + 8000
+    say(cat, '……靠这么近干嘛啦', 2200)
+    setTimeout(() => say(pig, '就要贴贴!', 2000), 1300)
+    spawnHeart((cat.x + pig.x) / 2, Math.min(cat.y, pig.y) - 10)
+  }
+}
 
 function say(who, text, ms = 3000) {
   who.bubble = text
@@ -125,7 +147,27 @@ function moveToward(p, speed) {
 }
 
 function step() {
-  if (hidden.value || isNight.value) return
+  if (hidden.value || isNight.value || gameMode.value) return
+
+  // ===== 激光笔:猫全速追红点 =====
+  if (laserOn.value && !cat.held) {
+    cat.state = 'chase'
+    cat.tx2 = mouse.x
+    cat.ty2 = Math.min(mouse.y, 92)
+    const dist = Math.hypot(cat.tx2 - cat.x, cat.ty2 - cat.y)
+    if (dist > 3) {
+      moveToward(cat, 0.8)
+      cat.pounced = false
+    } else if (!cat.pounced) {
+      cat.pounced = true
+      cat.anim = 'poke'
+      say(cat, '按住啦!', 1500)
+      setTimeout(() => (cat.anim = ''), 600)
+    }
+  } else if (cat.state === 'chase' && !laserOn.value) {
+    cat.state = 'walk'
+    pickTarget(cat)
+  }
 
   // ===== 食物最高优先级:场上有食物而吃货没锁定时,立刻锁定冲过去 =====
   for (const f of foods.value) {
@@ -154,7 +196,7 @@ function step() {
   }
 
   // ===== 猫 =====
-  if (!cat.held) {
+  if (!cat.held && !laserOn.value) {
     if (cat.state === 'chase') {
       cat.tx2 = mouse.x
       cat.ty2 = Math.min(mouse.y, 92)
@@ -173,11 +215,23 @@ function step() {
     }
   }
 
-  // ===== 猪(跟随带摆动,像撒欢的小跟班) =====
+  // ===== 猪(跟随带摆动;贴贴模式贴紧猫) =====
   if (!pig.held) {
     pig.wobble += 0.15
     if (pig.food) {
       if (stepPath(pig, 0.75)) eatFood(pig) // 干饭速度拉满
+    } else if (pig.mode === 'together') {
+      // 贴贴:紧贴猫身边同步走
+      pig.tx2 = cat.x - cat.dir * 6
+      pig.ty2 = cat.y
+      pig.state = cat.state === 'walk' || cat.state === 'chase' ? 'walk' : 'idle'
+      moveToward(pig, 0.3)
+      if (Date.now() > togetherUntil) {
+        pig.mode = 'follow'
+        say(pig, '嘿嘿,贴贴~', 2000)
+      } else if (Math.random() < 0.02) {
+        spawnHeart((cat.x + pig.x) / 2, Math.min(cat.y, pig.y) - 10)
+      }
     } else if (pig.mode === 'follow') {
       pig.tx2 = cat.x - cat.dir * 8
       pig.ty2 = Math.min(cat.y + 3 + Math.sin(pig.wobble) * 1.5, 94)
@@ -319,6 +373,7 @@ function onPointerUp(e) {
       say(p, p === cat ? '下次轻点放!' : '落地啦!', 1800)
       setTimeout(() => (p.anim = ''), 500)
     }
+    tryTogether() // 松手检测贴贴
   }
   pendingGrab = null
 }
@@ -403,6 +458,37 @@ function onMouse(e) {
   }
 }
 
+function onWhack(e) {
+  gameMode.value = e.detail === 'start'
+  if (gameMode.value) {
+    // 游戏开始:两只回避到左下角
+    cat.path = null
+    pig.path = null
+    cat.state = 'idle'
+    pig.state = 'idle'
+  } else {
+    cat.state = 'walk'
+    pickTarget(cat)
+  }
+}
+
+function onWeather(e) {
+  if (isNight.value || hidden.value) return
+  if (e.detail === 'rain') {
+    // 下雨:躲到公告板下面
+    const board = document.querySelector('.board')
+    if (board) {
+      const r = board.getBoundingClientRect()
+      cat.state = 'walk'
+      setPath(cat, (r.left / window.innerWidth) * 100 + 10, Math.min((r.bottom / window.innerHeight) * 100 + 6, 92))
+      say(cat, '下雨了,躲一躲', 2500)
+    }
+  } else if (e.detail === 'petals') {
+    say(cat, '花瓣雨,好漂亮', 2500)
+    setTimeout(() => say(pig, '哇——', 1800), 1400)
+  }
+}
+
 function onScroll() {
   ;[cat, pig].forEach((p) => {
     if (p.y < 80 && !p.food && !p.held) {
@@ -442,6 +528,8 @@ onMounted(() => {
   window.addEventListener('pointermove', onPointerMove, { passive: true })
   window.addEventListener('pointerup', onPointerUp)
   window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('whack', onWhack)
+  window.addEventListener('cafe-weather', onWeather)
   tick = setInterval(step, 50)
   stateTimer = setInterval(maybeChange, 4000)
   bubbleTimer = setInterval(maybeBubble, 8000)
@@ -454,6 +542,8 @@ onUnmounted(() => {
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
   window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('whack', onWhack)
+  window.removeEventListener('cafe-weather', onWeather)
   clearInterval(tick)
   clearInterval(stateTimer)
   clearInterval(bubbleTimer)
@@ -469,6 +559,17 @@ onUnmounted(() => {
   </button>
 
   <template v-if="!hidden">
+    <!-- 激光笔开关 -->
+    <button class="laser-btn" :class="{ on: laserOn }" @click="laserOn = !laserOn">
+      {{ laserOn ? '🔴 激光笔开' : '🔴 激光笔' }}
+    </button>
+
+    <!-- 激光红点 -->
+    <span v-if="laserOn" class="laser-dot" :style="{ left: mouse.x + 'vw', top: mouse.y + 'vh' }" />
+
+    <!-- 贴贴爱心 -->
+    <span v-for="h in loveHearts" :key="h.id" class="love-heart" :style="{ left: h.x + 'vw', top: h.y + 'vh' }">💗</span>
+
     <!-- 投喂按钮:拖出去丢食物 -->
     <button class="feed-btn" @pointerdown.prevent="startFoodDrag">
       🍰 按住拖出去投喂{{ feeds ? ` · 已被喂${feeds}次` : '' }}
@@ -494,8 +595,8 @@ onUnmounted(() => {
       🐟✨
     </button>
 
-    <!-- 看板猫(可拖拽) -->
-    <div class="pet" :class="{ held: cat.held }" :style="{ left: cat.x + 'vw', top: cat.y + 'vh' }">
+    <!-- 看板猫(可拖拽);拍猪咪游戏时隐藏 -->
+    <div v-show="!gameMode" class="pet" :class="{ held: cat.held }" :style="{ left: cat.x + 'vw', top: cat.y + 'vh' }">
       <transition name="bub">
         <span v-if="cat.bubble" class="pet-bubble">{{ cat.bubble }}</span>
       </transition>
@@ -517,7 +618,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 猪咪跟屁虫(可拖拽) -->
-    <div class="pet pig" :class="{ held: pig.held }" :style="{ left: pig.x + 'vw', top: pig.y + 'vh' }">
+    <div v-show="!gameMode" class="pet pig" :class="{ held: pig.held }" :style="{ left: pig.x + 'vw', top: pig.y + 'vh' }">
       <transition name="bub">
         <span v-if="pig.bubble" class="pet-bubble pig-bubble">{{ pig.bubble }}</span>
       </transition>
@@ -683,6 +784,55 @@ onUnmounted(() => {
 
 .pet-toggle:hover {
   background: var(--pink-pale);
+}
+
+.laser-btn {
+  position: fixed;
+  left: 20px;
+  bottom: 262px;
+  z-index: 60;
+  border: 2px solid var(--pink-soft);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--pink-deep);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.laser-btn.on {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+}
+
+.laser-dot {
+  position: fixed;
+  z-index: 90;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff2d55;
+  box-shadow: 0 0 12px 4px rgba(255, 45, 85, 0.55);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: left 0.03s linear, top 0.03s linear;
+}
+
+.love-heart {
+  position: fixed;
+  z-index: 57;
+  font-size: 20px;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  animation: loveUp 1.6s ease-out forwards;
+}
+
+@keyframes loveUp {
+  0% { opacity: 0; transform: translate(-50%, -90%) scale(0.5); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -260%) scale(1.2); }
 }
 
 .feed-btn {
