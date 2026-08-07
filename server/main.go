@@ -750,7 +750,8 @@ type Stats struct {
 	Total      int    `json:"total"`
 	Today      string `json:"today"`
 	TodayCount int    `json:"todayCount"`
-	Pets       int    `json:"pets"` // 猫猫被撸次数
+	Pets       int    `json:"pets"`  // 猫猫被撸次数
+	Feeds      int    `json:"feeds"` // 全店投喂次数
 }
 
 var (
@@ -962,6 +963,56 @@ func handlePet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// POST /api/feed — 投喂一次,返回全店总投喂数
+func handleFeed(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	statsMu.Lock()
+	stats.Feeds++
+	data, _ := json.Marshal(stats)
+	os.WriteFile(statsFile, data, 0644)
+	n := stats.Feeds
+	statsMu.Unlock()
+	writeJSON(w, 200, map[string]int{"feeds": n})
+}
+
+// POST /api/points/add {nick, n} — 娱乐加分(捡鱼干等),n 上限 10
+func handlePointsAdd(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Nick string `json:"nick"`
+		N    int    `json:"n"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	nick := clean(req.Nick, maxNickLen)
+	if nick == "" || nick == "匿名猪咪" {
+		writeJSON(w, 400, map[string]string{"error": "需要昵称才能攒鱼干"})
+		return
+	}
+	if req.N < 1 || req.N > 10 {
+		req.N = 5
+	}
+	if rateLimited(r) {
+		writeJSON(w, 429, map[string]string{"error": "手速太快啦"})
+		return
+	}
+	pointsMu.Lock()
+	points[nick] += req.N
+	total := points[nick]
+	savePoints()
+	pointsMu.Unlock()
+	title, _ := titleFor(total)
+	writeJSON(w, 200, map[string]any{"points": total, "title": title})
+}
+
 // ---------- 在线猪咪 ----------
 
 var (
@@ -1013,9 +1064,11 @@ func main() {
 	mux.HandleFunc("/api/wall/like", handleWallLike)
 	mux.HandleFunc("/api/hit", handleHit)
 	mux.HandleFunc("/api/pet", handlePet)
+	mux.HandleFunc("/api/feed", handleFeed)
 	mux.HandleFunc("/api/online", handleOnline)
 	mux.HandleFunc("/api/comments", handleComments)
 	mux.HandleFunc("/api/points", handlePoints)
+	mux.HandleFunc("/api/points/add", handlePointsAdd)
 	mux.HandleFunc("/api/content", handleContent)
 	mux.HandleFunc("/api/admin/login", handleLogin)
 	mux.HandleFunc("/api/admin/content", handlePutContent)

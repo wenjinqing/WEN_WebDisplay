@@ -16,6 +16,7 @@ async function query() {
     const data = await res.json()
     if (res.ok) {
       result.value = data
+      localStorage.setItem('catcafe_nick', nick.value.trim()) // 记住昵称,捡鱼干用
     } else {
       error.value = data.error || '查询失败'
     }
