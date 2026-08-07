@@ -214,29 +214,29 @@ onUnmounted(() => {
   background-repeat: no-repeat;
 }
 
-/* 爱丽丝 Evil 全身像素小人(帧宽64,高91) */
-.sprite.alice { width: 64px; height: 91px; }
+/* 看板娘(帧宽64,正方形帧;形象后续可替换) */
+.sprite.alice { width: 64px; height: 64px; }
 .sprite.pigmi { width: 56px; height: 56px; }
 
 /* 爱丽丝(帧宽64) */
 .sprite.alice.walk {
-  background-image: url('/pets/evil-walk.png');
-  background-size: 256px 91px;
+  background-image: url('/pets/alice-walk.png');
+  background-size: 256px 64px;
   animation: fr4a 0.55s steps(1) infinite;
 }
 .sprite.alice.idle {
-  background-image: url('/pets/evil-idle.png');
-  background-size: 128px 91px;
+  background-image: url('/pets/alice-idle.png');
+  background-size: 128px 64px;
   animation: fr2a 1.4s steps(1) infinite;
 }
 .sprite.alice.sleep {
-  background-image: url('/pets/evil-sleep.png');
-  background-size: 128px 91px;
+  background-image: url('/pets/alice-sleep.png');
+  background-size: 128px 64px;
   animation: fr2a 2.2s steps(1) infinite;
 }
 .sprite.alice.poke {
-  background-image: url('/pets/evil-poke.png');
-  background-size: 128px 91px;
+  background-image: url('/pets/alice-poke.png');
+  background-size: 128px 64px;
   animation: fr2a 0.3s steps(1) infinite;
 }
 

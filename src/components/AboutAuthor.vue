@@ -19,10 +19,6 @@ import { site } from '../data.js'
             🎨 去 P 站看她的主页 ↗
           </a>
         </div>
-        <figure class="portrait">
-          <img src="/evil-portrait.png" alt="Evil Neuro 人设图" />
-          <figcaption>头像角色:Evil Neuro</figcaption>
-        </figure>
       </div>
     </div>
   </section>
@@ -72,39 +68,11 @@ import { site } from '../data.js'
   margin-top: 10px;
 }
 
-.portrait {
-  flex-shrink: 0;
-  width: 180px;
-  text-align: center;
-}
-
-.portrait img {
-  width: 100%;
-  border-radius: 14px;
-  border: 3px solid var(--pink-soft);
-  box-shadow: var(--shadow);
-  transform: rotate(2deg);
-  transition: transform 0.25s ease;
-}
-
-.portrait img:hover {
-  transform: rotate(0deg) scale(1.03);
-}
-
-.portrait figcaption {
-  margin-top: 8px;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
 @media (max-width: 720px) {
   .card {
     flex-direction: column;
     padding: 28px;
     text-align: center;
-  }
-  .portrait {
-    width: 200px;
   }
 }
 </style>
