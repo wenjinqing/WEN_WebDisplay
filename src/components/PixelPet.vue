@@ -274,16 +274,16 @@ function onPointerUp(e) {
     heldPet = null
     warnedPig = false
     p.held = false // 解除抓取标记
-    // 松手:掉回地面
+    // 松手:原地垂直落下,落在哪就待在哪
     p.state = 'walk'
-    setPath(p, Math.max(3, Math.min(95, p.x)), 92, false)
+    setPath(p, p.x, 92, false)
     const fallSpeed = setInterval(() => {
       if (stepPath(p, 2.2)) {
         clearInterval(fallSpeed)
+        p.state = 'idle' // 落地后就地休息,不跑开
         p.anim = 'poke'
         say(p, p === cat ? '下次轻点放!' : '落地啦!', 1800)
         setTimeout(() => (p.anim = ''), 500)
-        pickTarget(p)
       }
     }, 30)
   }
@@ -430,9 +430,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <button v-if="hidden" class="pet-restore" aria-label="召回看板娘" @click="show">🐾</button>
+  <!-- 左侧按钮堆:弹幕 / 投喂 / 看板娘开关 -->
+  <button class="pet-toggle" @click="hidden ? show() : hide()">
+    {{ hidden ? '🐾 召回看板娘' : '🐾 看板娘休息' }}
+  </button>
 
-  <template v-else>
+  <template v-if="!hidden">
     <!-- 投喂按钮:拖出去丢食物 -->
     <button class="feed-btn" @pointerdown.prevent="startFoodDrag">
       🍰 按住拖出去投喂{{ feeds ? ` · 已被喂${feeds}次` : '' }}
@@ -463,7 +466,6 @@ onUnmounted(() => {
       <transition name="bub">
         <span v-if="cat.bubble" class="pet-bubble">{{ cat.bubble }}</span>
       </transition>
-      <button class="pet-hide" aria-label="让她们去休息" @click="hide">×</button>
       <span v-if="cat.state === 'sleep'" class="zzz">💤</span>
       <span class="flipper" :class="{ flip: cat.dir < 0 }">
         <img
@@ -631,40 +633,23 @@ onUnmounted(() => {
 .bub-enter-from { opacity: 0; transform: translateX(-50%) translateY(6px); }
 .bub-leave-to { opacity: 0; }
 
-.pet-hide {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(91, 58, 71, 0.5);
-  color: #fff;
-  font-size: 12px;
-  cursor: pointer;
-  pointer-events: auto;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.pet:hover .pet-hide {
-  opacity: 1;
-}
-
-.pet-restore {
+.pet-toggle {
   position: fixed;
   left: 20px;
   bottom: 118px;
-  z-index: 55;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  z-index: 60;
   border: 2px solid var(--pink-soft);
   background: rgba(255, 255, 255, 0.92);
-  font-size: 18px;
+  color: var(--pink-deep);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
   cursor: pointer;
   box-shadow: var(--shadow);
+}
+
+.pet-toggle:hover {
+  background: var(--pink-pale);
 }
 
 .feed-btn {
@@ -746,7 +731,6 @@ onUnmounted(() => {
 @media (max-width: 720px) {
   .alice-img { height: 70px; }
   .pigmi-img { height: 50px; }
-  .pet-hide { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
