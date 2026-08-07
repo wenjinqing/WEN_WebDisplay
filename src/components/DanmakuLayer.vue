@@ -1,13 +1,16 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 
-// 弹幕:云朵以文字为主体(CSS 胶囊+鼓包,永远包住文字),分航道避免重叠
+// 弹幕:云朵以文字为主体,分航道避免重叠。手机端默认关闭(小屏太占地方)
+const isMobile = window.innerWidth < 720
 const enabled = ref(
   (localStorage.getItem('catcafe_danmaku') ??
-    (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'on')) === 'on'
+    (window.matchMedia('(prefers-reduced-motion: reduce)').matches || isMobile ? 'off' : 'on')) === 'on'
 )
 
-const LANES = 6 // 航道数
+const LANES = isMobile ? 3 : 6 // 航道数
+const LANE_TOP = isMobile ? 5 : 8
+const LANE_GAP = isMobile ? 8 : 9
 const lanes = ref([]) // {id, text, lane, duration}
 const laneBusy = Array(LANES).fill(0) // 每条航道的解禁时间戳
 let timer = null
@@ -88,7 +91,7 @@ onUnmounted(() => {
       v-for="l in lanes"
       :key="l.id"
       class="dm"
-      :style="{ top: 8 + l.lane * 9 + '%', animationDuration: l.duration + 's' }"
+      :style="{ top: LANE_TOP + l.lane * LANE_GAP + '%', animationDuration: l.duration + 's' }"
     >
       {{ l.text }}
     </span>
@@ -125,6 +128,15 @@ onUnmounted(() => {
 @keyframes fly {
   to {
     transform: translateX(calc(-100vw - 100%));
+  }
+}
+
+/* 手机端:更小更瘦的云 */
+@media (max-width: 720px) {
+  .dm {
+    font-size: 0.78rem;
+    max-width: 160px;
+    padding: 10px 24px 12px;
   }
 }
 </style>
