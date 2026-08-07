@@ -18,6 +18,7 @@ import PawRain from './components/PawRain.vue'
 import PixelPet from './components/PixelPet.vue'
 import WhackGame from './components/WhackGame.vue'
 import WeatherLayer from './components/WeatherLayer.vue'
+import FunMenu from './components/FunMenu.vue'
 
 const readingNovel = ref(null)
 const commentingNovel = ref(null)
@@ -42,6 +43,7 @@ const commentingNovel = ref(null)
   <PixelPet />
   <WhackGame />
   <WeatherLayer />
+  <FunMenu />
   <NovelReader v-if="readingNovel" :novel="readingNovel" @close="readingNovel = null" />
   <CommentBox v-if="commentingNovel" :novel="commentingNovel" @close="commentingNovel = null" />
 </template>
