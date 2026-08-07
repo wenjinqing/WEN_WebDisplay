@@ -290,18 +290,6 @@ function maybeBubble() {
   }
 }
 
-// ===== 拖拽投喂 =====
-function startFoodDrag(e) {
-  const type = Math.random() < 0.5 ? '🐟' : '🍰'
-  dragFood.value = { type, x: px2vw(e.clientX), y: px2vh(e.clientY), moved: false }
-  // 对应的小吃货立刻注意到食物
-  const target = type === '🐟' ? cat : pig
-  if (!target.held && target.state !== 'sleep') {
-    target.state = 'walk'
-    say(target, type === '🐟' ? '鱼!是鱼!' : '蛋糕!给我给我!', 2000)
-  }
-}
-
 function px2vw(px) { return (px / window.innerWidth) * 100 }
 function px2vh(px) { return (px / window.innerHeight) * 100 }
 
@@ -458,6 +446,45 @@ function onMouse(e) {
   }
 }
 
+// 菜单事件:投喂(进入放置模式) / 看板娘开关 / 激光笔开关
+function onMenuFeed() {
+  if (hidden.value) return
+  const type = Math.random() < 0.5 ? '🐟' : '🍰'
+  dragFood.value = { type, x: mouse.x, y: mouse.y, moved: true }
+  showToast('点击任意位置放下食物')
+  // 下一次点击 = 放置
+  setTimeout(() => {
+    window.addEventListener('pointerdown', placeFoodOnce, { once: true })
+  }, 50)
+}
+
+function placeFoodOnce(e) {
+  if (!dragFood.value) return
+  const f = dragFood.value
+  dragFood.value = null
+  const food = {
+    id: ++foodSeq,
+    type: f.type,
+    x: Math.max(3, Math.min(95, px2vw(e.clientX))),
+    y: Math.max(15, Math.min(93, px2vh(e.clientY))),
+  }
+  foods.value.push(food)
+  const target = f.type === '🐟' ? cat : pig
+  target.food = food
+  target.state = 'walk'
+  setPath(target, food.x, food.y)
+  say(target, f.type === '🐟' ? '是鱼!冲!' : '蛋糕!我的!', 2000)
+}
+
+function onMenuPet() {
+  hidden.value ? show() : hide()
+}
+
+function onMenuLaser() {
+  laserOn.value = !laserOn.value
+  window.dispatchEvent(new CustomEvent('menu-state', { detail: { laser: laserOn.value } }))
+}
+
 function onWhack(e) {
   gameMode.value = e.detail === 'start'
   if (gameMode.value) {
@@ -530,6 +557,9 @@ onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('whack', onWhack)
   window.addEventListener('cafe-weather', onWeather)
+  window.addEventListener('menu-feed', onMenuFeed)
+  window.addEventListener('menu-pet', onMenuPet)
+  window.addEventListener('menu-laser', onMenuLaser)
   tick = setInterval(step, 50)
   stateTimer = setInterval(maybeChange, 4000)
   bubbleTimer = setInterval(maybeBubble, 8000)
@@ -544,6 +574,9 @@ onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
   window.removeEventListener('whack', onWhack)
   window.removeEventListener('cafe-weather', onWeather)
+  window.removeEventListener('menu-feed', onMenuFeed)
+  window.removeEventListener('menu-pet', onMenuPet)
+  window.removeEventListener('menu-laser', onMenuLaser)
   clearInterval(tick)
   clearInterval(stateTimer)
   clearInterval(bubbleTimer)
@@ -553,29 +586,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- 左侧按钮堆:弹幕 / 投喂 / 看板娘开关 -->
-  <button class="pet-toggle" @click="hidden ? show() : hide()">
-    {{ hidden ? '🐾 召回看板娘' : '🐾 看板娘休息' }}
-  </button>
-
   <template v-if="!hidden">
-    <!-- 激光笔开关 -->
-    <button class="laser-btn" :class="{ on: laserOn }" @click="laserOn = !laserOn">
-      {{ laserOn ? '🔴 激光笔开' : '🔴 激光笔' }}
-    </button>
-
     <!-- 激光红点 -->
     <span v-if="laserOn" class="laser-dot" :style="{ left: mouse.x + 'vw', top: mouse.y + 'vh' }" />
 
     <!-- 贴贴爱心 -->
     <span v-for="h in loveHearts" :key="h.id" class="love-heart" :style="{ left: h.x + 'vw', top: h.y + 'vh' }">💗</span>
 
-    <!-- 投喂按钮:拖出去丢食物 -->
-    <button class="feed-btn" @pointerdown.prevent="startFoodDrag">
-      🍰 按住拖出去投喂{{ feeds ? ` · 已被喂${feeds}次` : '' }}
-    </button>
-
-    <!-- 拖拽中的食物 -->
+    <!-- 拖拽/放置中的食物 -->
     <span v-if="dragFood" class="food ghost" :style="{ left: dragFood.x + 'vw', top: dragFood.y + 'vh' }">
       {{ dragFood.type }}
     </span>
@@ -767,45 +785,9 @@ onUnmounted(() => {
 .bub-enter-from { opacity: 0; transform: translateX(-50%) translateY(6px); }
 .bub-leave-to { opacity: 0; }
 
-.pet-toggle {
-  position: fixed;
-  left: 20px;
-  bottom: 118px;
-  z-index: 60;
-  border: 2px solid var(--pink-soft);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--pink-deep);
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-}
 
-.pet-toggle:hover {
-  background: var(--pink-pale);
-}
 
-.laser-btn {
-  position: fixed;
-  left: 20px;
-  bottom: 262px;
-  z-index: 60;
-  border: 2px solid var(--pink-soft);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--pink-deep);
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-}
 
-.laser-btn.on {
-  background: var(--pink);
-  border-color: var(--pink);
-  color: #fff;
-}
 
 .laser-dot {
   position: fixed;
@@ -835,28 +817,7 @@ onUnmounted(() => {
   100% { opacity: 0; transform: translate(-50%, -260%) scale(1.2); }
 }
 
-.feed-btn {
-  position: fixed;
-  left: 20px;
-  bottom: 70px;
-  z-index: 60;
-  border: 2px solid var(--pink-soft);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--pink-deep);
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  cursor: grab;
-  box-shadow: var(--shadow);
-  transition: transform 0.15s;
-  touch-action: none;
-  user-select: none;
-}
 
-.feed-btn:hover {
-  transform: scale(1.06);
-  background: var(--pink-pale);
-}
 
 .food {
   position: fixed;

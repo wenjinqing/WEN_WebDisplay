@@ -1,6 +1,6 @@
 <script setup>
 // 拍猪咪小游戏:30秒限时,猪咪随机探头,拍到得分,结算换鱼干
-import { ref, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 const playing = ref(false)
 const score = ref(0)
@@ -71,15 +71,20 @@ async function end() {
   result.value = `拍到 ${score.value} 只!${nick ? '' : '(输昵称可查头衔,鱼干自动入账)'}`
 }
 
+function onMenuWhack() {
+  if (!playing.value) start()
+}
+
+onMounted(() => window.addEventListener('menu-whack', onMenuWhack))
+
 onUnmounted(() => {
   clearInterval(timer)
   clearTimeout(popTimer)
+  window.removeEventListener('menu-whack', onMenuWhack)
 })
 </script>
 
 <template>
-  <button class="whack-btn" @click="start">🎯 拍猪咪</button>
-
   <div v-if="playing" class="whack-hud">
     <span>⏱️ {{ timeLeft }}s</span>
     <span>🐷 {{ score }} 只</span>
@@ -104,24 +109,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.whack-btn {
-  position: fixed;
-  left: 20px;
-  bottom: 166px;
-  z-index: 60;
-  border: 2px solid var(--pink-soft);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--pink-deep);
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-}
 
-.whack-btn:hover {
-  background: var(--pink-pale);
-}
 
 .whack-hud {
   position: fixed;

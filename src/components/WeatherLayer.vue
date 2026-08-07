@@ -38,19 +38,18 @@ function cycle() {
 }
 
 onMounted(() => {
-  // 随机开局,10分钟一换
-  setWeather(ORDER[Math.floor(Math.random() * ORDER.length)])
+  // 默认晴天(保持画面干净),10分钟自动轮换;菜单里可手动切
   cycleTimer = setInterval(cycle, 10 * 60 * 1000)
+  window.addEventListener('menu-weather', cycle)
 })
 
-onUnmounted(() => clearInterval(cycleTimer))
+onUnmounted(() => {
+  clearInterval(cycleTimer)
+  window.removeEventListener('menu-weather', cycle)
+})
 </script>
 
 <template>
-  <button class="weather-btn" :title="'当前:' + weather" @click="cycle">
-    {{ ICONS[weather] }} 天气
-  </button>
-
   <div v-if="weather !== 'sunny'" class="weather-layer" aria-hidden="true">
     <template v-if="weather === 'rain'">
       <i
@@ -77,24 +76,7 @@ onUnmounted(() => clearInterval(cycleTimer))
 </template>
 
 <style scoped>
-.weather-btn {
-  position: fixed;
-  left: 20px;
-  bottom: 214px;
-  z-index: 60;
-  border: 2px solid var(--pink-soft);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--pink-deep);
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-}
 
-.weather-btn:hover {
-  background: var(--pink-pale);
-}
 
 .weather-layer {
   position: fixed;

@@ -54,6 +54,11 @@ function toggle() {
     spawn()
     spawn()
   }
+  window.dispatchEvent(new CustomEvent('menu-state', { detail: { danmaku: enabled.value } }))
+}
+
+function onMenuToggle() {
+  toggle()
 }
 
 onMounted(async () => {
@@ -67,9 +72,14 @@ onMounted(async () => {
   if (!pool.length) pool = FALLBACK
   timer = setInterval(spawn, 2500)
   if (enabled.value) spawn()
+  window.addEventListener('menu-danmaku', onMenuToggle)
+  window.dispatchEvent(new CustomEvent('menu-state', { detail: { danmaku: enabled.value } }))
 })
 
-onUnmounted(() => clearInterval(timer))
+onUnmounted(() => {
+  clearInterval(timer)
+  window.removeEventListener('menu-danmaku', onMenuToggle)
+})
 </script>
 
 <template>
@@ -83,9 +93,6 @@ onUnmounted(() => clearInterval(timer))
       {{ l.text }}
     </span>
   </div>
-  <button class="dm-toggle" :aria-pressed="enabled" @click="toggle">
-    {{ enabled ? '💬 弹幕开' : '💭 弹幕关' }}
-  </button>
 </template>
 
 <style scoped>
@@ -119,24 +126,5 @@ onUnmounted(() => clearInterval(timer))
   to {
     transform: translateX(calc(-100vw - 100%));
   }
-}
-
-.dm-toggle {
-  position: fixed;
-  left: 20px;
-  bottom: 24px;
-  z-index: 60;
-  border: 2px solid var(--pink-soft);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--pink-deep);
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-}
-
-.dm-toggle:hover {
-  background: var(--pink-pale);
 }
 </style>
