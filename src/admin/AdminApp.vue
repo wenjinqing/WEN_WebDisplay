@@ -168,6 +168,11 @@ async function uploadFile(file, type) {
   fd.append('type', type)
   fd.append('file', file)
   const res = await fetch('/api/admin/upload', { method: 'POST', headers: authHeaders(), body: fd })
+  if (res.status === 401) {
+    logout()
+    showToast('登录已过期,请重新登录')
+    throw new Error('登录已过期')
+  }
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || '上传失败')
   return data.file
