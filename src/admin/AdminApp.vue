@@ -226,6 +226,23 @@ async function changePass() {
   }
 }
 
+// 导出全部数据备份(zip)
+async function exportData() {
+  try {
+    const res = await fetch('/api/admin/export', { headers: authHeaders() })
+    if (res.status === 401) return logout()
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `catcafe-backup-${new Date().toISOString().slice(0, 10)}.zip`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    showToast('备份包已开始下载 ✅')
+  } catch {
+    showToast('导出失败,稍后再试')
+  }
+}
+
 function showToast(text) {
   toast.value = text
   setTimeout(() => (toast.value = ''), 3000)
@@ -407,6 +424,10 @@ function showToast(text) {
         <label>原密码 <input v-model="oldPass" type="password" /></label>
         <label>新密码(至少6位) <input v-model="newPass" type="password" /></label>
         <button class="btn btn-primary" @click="changePass">更新密码</button>
+        <div class="export-box">
+          <p class="hint-text">数据备份:留言、明信片、积分、公告等全部内容打包下载,建议每月存一份</p>
+          <button class="btn btn-ghost" @click="exportData">📦 导出数据备份</button>
+        </div>
       </section>
 
       <footer v-if="tab !== 'account' && tab !== 'wall' && tab !== 'msgs'" class="panel-foot">
@@ -681,6 +702,16 @@ time {
 
 .reply-row input {
   flex: 1;
+}
+
+.export-box {
+  border-top: 2px dashed var(--pink-pale);
+  padding-top: 16px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
 }
 
 .novel-block {

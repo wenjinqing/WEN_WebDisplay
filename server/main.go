@@ -4,6 +4,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
@@ -1100,6 +1101,92 @@ func handleOnline(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]int{"online": n})
 }
 
+// ---------- 年度账本 & 数据导出 ----------
+
+// GET /api/recap — 年度回忆数据汇总
+func handleRecap(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	msgCount := len(store.Messages)
+	urgeTotal := store.UrgeTotal
+	mu.Unlock()
+
+	wallMu.Lock()
+	postCount := len(wall)
+	likeTotal := 0
+	var topPost *WallPost
+	for i := range wall {
+		likeTotal += wall[i].Likes
+		if topPost == nil || wall[i].Likes > topPost.Likes {
+			topPost = &wall[i]
+		}
+	}
+	wallMu.Unlock()
+
+	statsMu.Lock()
+	visits := stats.Total
+	pets := stats.Pets
+	feeds := stats.Feeds
+	statsMu.Unlock()
+
+	pointsMu.Lock()
+	pigmiCount := len(points)
+	topNick, topPoints := "", 0
+	for nick, p := range points {
+		if p > topPoints {
+			topNick, topPoints = nick, p
+		}
+	}
+	pointsMu.Unlock()
+
+	commentsMu.Lock()
+	commentCount := 0
+	for _, list := range comments {
+		commentCount += len(list)
+	}
+	commentsMu.Unlock()
+
+	out := map[string]any{
+		"messages":  msgCount,
+		"urges":     urgeTotal,
+		"comments":  commentCount,
+		"postcards": postCount,
+		"likes":     likeTotal,
+		"visits":    visits,
+		"pets":      pets,
+		"feeds":     feeds,
+		"pigmis":    pigmiCount,
+	}
+	if topPost != nil && topPost.Likes > 0 {
+		out["topPost"] = map[string]any{"nick": topPost.Nick, "likes": topPost.Likes}
+	}
+	if topNick != "" {
+		out["topPigmi"] = map[string]any{"nick": topNick, "points": topPoints}
+	}
+	writeJSON(w, 200, out)
+}
+
+// GET /api/admin/export — 导出全部数据(zip)
+func handleExport(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	files, _ := filepath.Glob("/var/lib/catcafe/*.json")
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		fw, _ := zw.Create(filepath.Base(f))
+		fw.Write(data)
+	}
+	zw.Close()
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename=catcafe-backup.zip")
+	w.Write(buf.Bytes())
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -1133,6 +1220,8 @@ func main() {
 	mux.HandleFunc("/api/comments", handleComments)
 	mux.HandleFunc("/api/points", handlePoints)
 	mux.HandleFunc("/api/points/add", handlePointsAdd)
+	mux.HandleFunc("/api/recap", handleRecap)
+	mux.HandleFunc("/api/admin/export", handleExport)
 	mux.HandleFunc("/api/content", handleContent)
 	mux.HandleFunc("/api/admin/login", handleLogin)
 	mux.HandleFunc("/api/admin/content", handlePutContent)
