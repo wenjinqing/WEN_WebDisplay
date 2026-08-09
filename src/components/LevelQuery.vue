@@ -55,7 +55,7 @@ async function query() {
         <span class="my-title special-title font-cute">{{ special.title }}</span>
       </div>
       <p class="special-desc">{{ special.desc }}</p>
-      <p class="next-tip">店长的鱼干罐:{{ result.points }}(店长不需要攒鱼干啦)</p>
+      <p class="next-tip">店长的鱼干罐:∞(店长有吃不完的鱼干)</p>
     </div>
 
     <div v-else-if="result" class="result">
