@@ -7,6 +7,7 @@ const open = ref(false)
 const active = ref({ danmaku: false, laser: false }) // 由组件回同步状态
 
 const items = [
+  { key: 'share', icon: '💌', label: '分享本站', event: 'menu-share' },
   { key: 'feed', icon: '🍰', label: '投喂', event: 'menu-feed' },
   { key: 'danmaku', icon: '💬', label: '弹幕', event: 'menu-danmaku', toggle: 'danmaku' },
   { key: 'weather', icon: '🌦️', label: '天气', event: 'menu-weather' },
