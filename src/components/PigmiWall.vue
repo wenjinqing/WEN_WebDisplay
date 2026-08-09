@@ -15,6 +15,7 @@ const msgOk = ref(false)
 
 // 本机已点过赞的明信片(localStorage 记录,防重复点)
 const liked = ref(new Set(JSON.parse(localStorage.getItem('catcafe_likes') || '[]')))
+const zoomImg = ref(null) // 双击放大
 
 // 点赞多的排前面,同数按时间新→旧(文件名前缀是时间戳)
 const sorted = computed(() =>
@@ -110,7 +111,14 @@ function showMsg(text, ok) {
       <div v-if="posts.length" class="wall-grid" v-reveal>
         <figure v-for="(p, i) in sorted" :key="p.img" class="postcard" :class="`tilt-${i % 3}`">
           <div class="photo">
-            <img :src="`/wall/${p.img}`" :alt="p.nick + '的明信片'" loading="lazy" />
+            <img
+              :src="`/wall/${p.img}`"
+              :alt="p.nick + '的明信片'"
+              loading="lazy"
+              class="zoomable"
+              @dblclick.prevent="zoomImg = `/wall/${p.img}`"
+              @contextmenu.prevent
+            />
             <span v-if="i === 0 && p.likes > 0" class="crown font-cute">👑 人气王</span>
           </div>
           <figcaption>
@@ -135,6 +143,12 @@ function showMsg(text, ok) {
         <PigmiFace :size="90" />
         <p>墙上还空空的,来贴第一张明信片喵~</p>
       </div>
+    </div>
+
+    <!-- 双击放大灯箱 -->
+    <div v-if="zoomImg" class="lightbox" @click="zoomImg = null">
+      <img :src="zoomImg" alt="放大预览" @contextmenu.prevent @dragstart.prevent />
+      <p class="lb-tip">双击打开 · 点任意处关闭</p>
     </div>
   </section>
 </template>
@@ -298,6 +312,46 @@ function showMsg(text, ok) {
   text-align: center;
   color: var(--muted);
   padding: 20px 0 10px;
+}
+
+.zoomable {
+  cursor: zoom-in;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: rgba(91, 58, 71, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  cursor: zoom-out;
+  animation: lbIn 0.2s ease;
+}
+
+.lightbox img {
+  max-width: 92vw;
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 4px solid #fff;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.lb-tip {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.8rem;
+}
+
+@keyframes lbIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (max-width: 720px) {

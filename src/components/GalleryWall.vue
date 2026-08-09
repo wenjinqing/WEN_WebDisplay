@@ -1,7 +1,10 @@
 <script setup>
+import { ref } from 'vue'
 import PawPrint from './PawPrint.vue'
 import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
+
+const zoomImg = ref(null) // 双击放大的图片
 </script>
 
 <template>
@@ -12,7 +15,15 @@ import { site } from '../data.js'
       <div class="wall" v-reveal>
         <figure v-for="(g, i) in site.gallery" :key="i" class="polaroid" :class="`tilt-${i % 3}`">
           <div class="photo">
-            <img v-if="g.img" :src="`/gallery/${g.img}`" :alt="g.title" loading="lazy" />
+            <img
+              v-if="g.img"
+              :src="`/gallery/${g.img}`"
+              :alt="g.title"
+              loading="lazy"
+              class="zoomable"
+              @dblclick.prevent="zoomImg = `/gallery/${g.img}`"
+              @contextmenu.prevent
+            />
             <div v-else class="placeholder">
               <PawPrint :size="40" color="#f0c9d6" />
               <span>照片冲洗中…</span>
@@ -24,6 +35,12 @@ import { site } from '../data.js'
           </figcaption>
         </figure>
       </div>
+    </div>
+
+    <!-- 双击放大灯箱 -->
+    <div v-if="zoomImg" class="lightbox" @click="zoomImg = null">
+      <img :src="zoomImg" alt="放大预览" @contextmenu.prevent @dragstart.prevent />
+      <p class="tip">双击打开 · 点任意处关闭</p>
     </div>
   </section>
 </template>
@@ -112,6 +129,47 @@ figcaption b {
 figcaption span {
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.zoomable {
+  cursor: zoom-in;
+}
+
+/* 双击放大灯箱 */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: rgba(91, 58, 71, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  cursor: zoom-out;
+  animation: lbIn 0.2s ease;
+}
+
+.lightbox img {
+  max-width: 92vw;
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 4px solid #fff;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.lightbox .tip {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.8rem;
+}
+
+@keyframes lbIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (max-width: 720px) {
