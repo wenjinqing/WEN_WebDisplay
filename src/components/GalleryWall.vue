@@ -4,7 +4,17 @@ import PawPrint from './PawPrint.vue'
 import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 
-const zoomImg = ref(null) // 双击放大的图片
+const zoomImg = ref(null) // 点图放大
+let zoomAt = 0
+
+function openZoom(src) {
+  zoomImg.value = src
+  zoomAt = Date.now()
+}
+
+function closeZoom() {
+  if (Date.now() - zoomAt > 350) zoomImg.value = null
+}
 </script>
 
 <template>
@@ -21,13 +31,14 @@ const zoomImg = ref(null) // 双击放大的图片
               :alt="g.title"
               loading="lazy"
               class="zoomable"
-              @dblclick.prevent="zoomImg = `/gallery/${g.img}`"
+              @click="openZoom(`/gallery/${g.img}`)"
               @contextmenu.prevent
             />
             <div v-else class="placeholder">
               <PawPrint :size="40" color="#f0c9d6" />
               <span>照片冲洗中…</span>
             </div>
+            <span v-if="g.img" class="zoom-hint">🔍</span>
           </div>
           <figcaption>
             <b>{{ g.title }}</b>
@@ -37,10 +48,10 @@ const zoomImg = ref(null) // 双击放大的图片
       </div>
     </div>
 
-    <!-- 双击放大灯箱 -->
-    <div v-if="zoomImg" class="lightbox" @click="zoomImg = null">
+    <!-- 点图放大灯箱 -->
+    <div v-if="zoomImg" class="lightbox" @click="closeZoom">
       <img :src="zoomImg" alt="放大预览" @contextmenu.prevent @dragstart.prevent />
-      <p class="tip">双击打开 · 点任意处关闭</p>
+      <p class="tip">点任意处关闭</p>
     </div>
   </section>
 </template>
@@ -133,6 +144,26 @@ figcaption span {
 
 .zoomable {
   cursor: zoom-in;
+}
+
+.photo {
+  position: relative;
+}
+
+.zoom-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  pointer-events: none;
+  opacity: 0.85;
 }
 
 /* 双击放大灯箱 */

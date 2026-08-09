@@ -15,7 +15,17 @@ const msgOk = ref(false)
 
 // 本机已点过赞的明信片(localStorage 记录,防重复点)
 const liked = ref(new Set(JSON.parse(localStorage.getItem('catcafe_likes') || '[]')))
-const zoomImg = ref(null) // 双击放大
+const zoomImg = ref(null) // 点图放大
+let zoomAt = 0 // 打开时间戳,防双击第二击秒关
+
+function openZoom(src) {
+  zoomImg.value = src
+  zoomAt = Date.now()
+}
+
+function closeZoom() {
+  if (Date.now() - zoomAt > 350) zoomImg.value = null
+}
 
 // 点赞多的排前面,同数按时间新→旧(文件名前缀是时间戳)
 const sorted = computed(() =>
@@ -116,9 +126,10 @@ function showMsg(text, ok) {
               :alt="p.nick + '的明信片'"
               loading="lazy"
               class="zoomable"
-              @dblclick.prevent="zoomImg = `/wall/${p.img}`"
+              @click="openZoom(`/wall/${p.img}`)"
               @contextmenu.prevent
             />
+            <span class="zoom-hint">🔍</span>
             <span v-if="i === 0 && p.likes > 0" class="crown font-cute">👑 人气王</span>
           </div>
           <figcaption>
@@ -145,10 +156,10 @@ function showMsg(text, ok) {
       </div>
     </div>
 
-    <!-- 双击放大灯箱 -->
-    <div v-if="zoomImg" class="lightbox" @click="zoomImg = null">
+    <!-- 点图放大灯箱 -->
+    <div v-if="zoomImg" class="lightbox" @click="closeZoom">
       <img :src="zoomImg" alt="放大预览" @contextmenu.prevent @dragstart.prevent />
-      <p class="lb-tip">双击打开 · 点任意处关闭</p>
+      <p class="lb-tip">点任意处关闭</p>
     </div>
   </section>
 </template>
@@ -236,10 +247,27 @@ function showMsg(text, ok) {
 .tilt-2 { transform: rotate(-0.8deg); }
 
 .photo {
+  position: relative;
   aspect-ratio: 4 / 3;
   border-radius: 6px;
   overflow: hidden;
   background: var(--pink-pale);
+}
+
+.zoom-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  pointer-events: none;
+  opacity: 0.85;
 }
 
 .photo img {
@@ -251,7 +279,7 @@ function showMsg(text, ok) {
 .note {
   font-size: 0.88rem;
   color: var(--ink);
-  margin: 8px 0 4px;
+  margin: 12px 0 4px; /* 与图片拉开距离,防误触点赞 */
   word-break: break-word;
 }
 
