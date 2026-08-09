@@ -4,9 +4,6 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 
 const hidden = ref(localStorage.getItem('catcafe_pet_hide') === '1')
 const isNight = ref(false)
-const isMobile = window.innerWidth < 720 // 手机端:缩小+只在底部活动
-const shy = ref(false) // 滚动阅读时自动害羞隐身
-let shyTimer = null
 const laserOn = ref(false)   // 激光笔模式
 const gameMode = ref(false)  // 拍猪咪游戏中,看板娘回避
 const loveHearts = ref([])   // 贴贴爱心 {id, x, y}
@@ -115,11 +112,6 @@ function stepPath(p, speed) {
 }
 
 function pickTarget(p) {
-  // 手机端:只在底部一条带活动,不跑中场不趴卡片(防挡正文)
-  if (isMobile) {
-    setPath(p, 5 + Math.random() * 85, 88 + Math.random() * 6)
-    return
-  }
   const r = Math.random()
   if (r < 0.55) {
     setPath(p, 5 + Math.random() * 85, 86 + Math.random() * 8)
@@ -528,12 +520,6 @@ function onWeather(e) {
 }
 
 function onScroll() {
-  // 阅读时自动隐身,停下 1.4 秒后回来
-  if (!hidden.value) {
-    shy.value = true
-    clearTimeout(shyTimer)
-    shyTimer = setTimeout(() => (shy.value = false), 1400)
-  }
   ;[cat, pig].forEach((p) => {
     if (p.y < 80 && !p.food && !p.held) {
       setPath(p, p.x, 86 + Math.random() * 8)
@@ -631,7 +617,7 @@ onUnmounted(() => {
     </button>
 
     <!-- 看板猫(可拖拽);拍猪咪游戏时隐藏 -->
-    <div v-show="!gameMode" class="pet" :class="{ held: cat.held, shy }" :style="{ left: cat.x + 'vw', top: cat.y + 'vh' }">
+    <div v-show="!gameMode" class="pet" :class="{ held: cat.held }" :style="{ left: cat.x + 'vw', top: cat.y + 'vh' }">
       <transition name="bub">
         <span v-if="cat.bubble" class="pet-bubble">{{ cat.bubble }}</span>
       </transition>
@@ -653,7 +639,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 猪咪跟屁虫(可拖拽) -->
-    <div v-show="!gameMode" class="pet pig" :class="{ held: pig.held, shy }" :style="{ left: pig.x + 'vw', top: pig.y + 'vh' }">
+    <div v-show="!gameMode" class="pet pig" :class="{ held: pig.held }" :style="{ left: pig.x + 'vw', top: pig.y + 'vh' }">
       <transition name="bub">
         <span v-if="pig.bubble" class="pet-bubble pig-bubble">{{ pig.bubble }}</span>
       </transition>
@@ -692,16 +678,6 @@ onUnmounted(() => {
 .pet.held {
   transition: none; /* 拖拽时跟手 */
   z-index: 58;
-}
-
-/* 阅读时害羞隐身:几乎看不见、点不到,停滚 1.4s 后回来 */
-.pet.shy {
-  opacity: 0.12;
-  transition: left 0.05s linear, top 0.05s linear, opacity 0.3s ease;
-}
-
-.pet.shy .pet-img {
-  pointer-events: none;
 }
 
 .pet.held .pet-img {
