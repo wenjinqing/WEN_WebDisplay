@@ -11,6 +11,7 @@ import GalleryWall from './components/GalleryWall.vue'
 import InteractSection from './components/InteractSection.vue'
 import PigmiWall from './components/PigmiWall.vue'
 import PigmiClub from './components/PigmiClub.vue'
+import RecapCard from './components/RecapCard.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import BackToTop from './components/BackToTop.vue'
 import DanmakuLayer from './components/DanmakuLayer.vue'
@@ -35,6 +36,7 @@ const commentingNovel = ref(null)
     <InteractSection />
     <PigmiWall />
     <PigmiClub />
+    <RecapCard />
   </main>
   <SiteFooter />
   <BackToTop />
