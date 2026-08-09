@@ -134,9 +134,13 @@ function logout() {
   localStorage.removeItem('catcafe_token')
 }
 
+let contentSnapshot = '' // 服务器内容快照,用于检测外部改动
+
 async function loadContent() {
   const res = await fetch('/api/content')
-  Object.assign(c, await res.json())
+  const text = await res.text()
+  contentSnapshot = text
+  Object.assign(c, JSON.parse(text))
   loadWall()
   loadMsgs()
   loaded.value = true
@@ -149,13 +153,26 @@ function authHeaders() {
 async function save() {
   saving.value = true
   try {
+    // 防覆盖:保存前先对比服务器最新内容,若已被别处改动则刷新并提示
+    const fresh = await (await fetch('/api/content')).text()
+    if (contentSnapshot && fresh !== contentSnapshot) {
+      contentSnapshot = fresh
+      Object.assign(c, JSON.parse(fresh))
+      showToast('内容刚在别处更新过,已为你刷新,请确认后再点保存 ⚠️')
+      return
+    }
     const res = await fetch('/api/admin/content', {
       method: 'PUT',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify(c),
     })
     if (res.status === 401) return logout()
-    showToast(res.ok ? '已保存!前台刷新即可看到 ✅' : '保存失败')
+    if (res.ok) {
+      contentSnapshot = await (await fetch('/api/content')).text() // 同步新快照
+      showToast('已保存!前台刷新即可看到 ✅')
+    } else {
+      showToast('保存失败')
+    }
   } catch {
     showToast('网络错误,保存失败')
   } finally {
