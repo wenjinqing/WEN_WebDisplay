@@ -25,6 +25,8 @@ import (
 
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
+
+	"github.com/skip2/go-qrcode"
 )
 
 const (
@@ -309,6 +311,7 @@ func handleMessages(w http.ResponseWriter, r *http.Request) {
 		saveStore()
 		mu.Unlock()
 		addPoints(m.Nick, 5) // 留言 +5 鱼干
+		bumpDaily("messages")
 		writeJSON(w, 200, m)
 	default:
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
@@ -347,6 +350,7 @@ func handleUrge(w http.ResponseWriter, r *http.Request) {
 		saveStore()
 		mu.Unlock()
 		addPoints(u.Nick, 2) // 催更 +2 鱼干
+		bumpDaily("urges")
 		writeJSON(w, 200, map[string]any{"total": total, "urge": u})
 	default:
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
@@ -654,6 +658,7 @@ func handleWall(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("新明信片: %s 寄出了 %s", nick, name)
 		addPoints(nick, 10) // 寄明信片 +10 鱼干
+		bumpDaily("postcards")
 		writeJSON(w, 200, post)
 	default:
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
@@ -702,6 +707,7 @@ func handleWallLike(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 404, map[string]string{"error": "明信片不存在"})
 		return
 	}
+	bumpDaily("likes")
 
 	rateMu.Lock()
 	likedBy[key] = true
@@ -802,12 +808,55 @@ func handleMessageReply(w http.ResponseWriter, r *http.Request) {
 
 // ---------- 访问统计 ----------
 
+type Daily struct {
+	Date      string `json:"date"`
+	Visits    int    `json:"visits"`
+	Pets      int    `json:"pets"`
+	Feeds     int    `json:"feeds"`
+	Urges     int    `json:"urges"`
+	Messages  int    `json:"messages"`
+	Comments  int    `json:"comments"`
+	Postcards int    `json:"postcards"`
+	Likes     int    `json:"likes"`
+}
+
 type Stats struct {
 	Total      int    `json:"total"`
 	Today      string `json:"today"`
 	TodayCount int    `json:"todayCount"`
 	Pets       int    `json:"pets"`  // 猫猫被撸次数
 	Feeds      int    `json:"feeds"` // 全店投喂次数
+	Day        Daily  `json:"day"` // 今日数据
+}
+
+// 每日计数:跨天自动清零
+func bumpDaily(field string) {
+	statsMu.Lock()
+	defer statsMu.Unlock()
+	today := time.Now().Format("2006-01-02")
+	if stats.Day.Date != today {
+		stats.Day = Daily{Date: today}
+	}
+	switch field {
+	case "visits":
+		stats.Day.Visits++
+	case "pets":
+		stats.Day.Pets++
+	case "feeds":
+		stats.Day.Feeds++
+	case "urges":
+		stats.Day.Urges++
+	case "messages":
+		stats.Day.Messages++
+	case "comments":
+		stats.Day.Comments++
+	case "postcards":
+		stats.Day.Postcards++
+	case "likes":
+		stats.Day.Likes++
+	}
+	data, _ := json.Marshal(stats)
+	os.WriteFile(statsFile, data, 0644)
 }
 
 var (
@@ -838,10 +887,9 @@ func handleHit(w http.ResponseWriter, r *http.Request) {
 	}
 	stats.Total++
 	stats.TodayCount++
-	data, _ := json.Marshal(stats)
-	os.WriteFile(statsFile, data, 0644)
 	out := stats
 	statsMu.Unlock()
+	bumpDaily("visits")
 	writeJSON(w, 200, out)
 }
 
@@ -931,6 +979,7 @@ func handleComments(w http.ResponseWriter, r *http.Request) {
 		saveComments()
 		commentsMu.Unlock()
 		addPoints(cm.Nick, 5) // 评论 +5 鱼干
+		bumpDaily("comments")
 		writeJSON(w, 200, cm)
 	default:
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
@@ -1013,10 +1062,9 @@ func handlePet(w http.ResponseWriter, r *http.Request) {
 		// 娱乐计数器,允许快速点,开心就好
 		statsMu.Lock()
 		stats.Pets++
-		data, _ := json.Marshal(stats)
-		os.WriteFile(statsFile, data, 0644)
 		n := stats.Pets
 		statsMu.Unlock()
+		bumpDaily("pets")
 		writeJSON(w, 200, map[string]int{"pets": n})
 	default:
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
@@ -1031,10 +1079,9 @@ func handleFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	statsMu.Lock()
 	stats.Feeds++
-	data, _ := json.Marshal(stats)
-	os.WriteFile(statsFile, data, 0644)
 	n := stats.Feeds
 	statsMu.Unlock()
+	bumpDaily("feeds")
 	writeJSON(w, 200, map[string]int{"feeds": n})
 }
 
@@ -1145,6 +1192,9 @@ func handleRecap(w http.ResponseWriter, r *http.Request) {
 	}
 	commentsMu.Unlock()
 
+	statsMu.Lock()
+	day := stats.Day
+	statsMu.Unlock()
 	out := map[string]any{
 		"messages":  msgCount,
 		"urges":     urgeTotal,
@@ -1155,6 +1205,7 @@ func handleRecap(w http.ResponseWriter, r *http.Request) {
 		"pets":      pets,
 		"feeds":     feeds,
 		"pigmis":    pigmiCount,
+		"day":       day,
 	}
 	if topPost != nil && topPost.Likes > 0 {
 		out["topPost"] = map[string]any{"nick": topPost.Nick, "likes": topPost.Likes}
@@ -1185,6 +1236,22 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename=catcafe-backup.zip")
 	w.Write(buf.Bytes())
+}
+
+// GET /api/qr — 本站二维码
+func handleQR(w http.ResponseWriter, r *http.Request) {
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	png, err := qrcode.Encode(scheme+"://"+r.Host+"/", qrcode.Medium, 220)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "生成失败"})
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(png)
 }
 
 // ---------- 启动 ----------
@@ -1221,6 +1288,7 @@ func main() {
 	mux.HandleFunc("/api/points", handlePoints)
 	mux.HandleFunc("/api/points/add", handlePointsAdd)
 	mux.HandleFunc("/api/recap", handleRecap)
+	mux.HandleFunc("/api/qr", handleQR)
 	mux.HandleFunc("/api/admin/export", handleExport)
 	mux.HandleFunc("/api/content", handleContent)
 	mux.HandleFunc("/api/admin/login", handleLogin)

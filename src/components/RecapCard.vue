@@ -1,10 +1,13 @@
 <script setup>
-// 年度回忆:猫咖年度账本(小票风格)
-import { ref, onMounted } from 'vue'
+// 今日报告:猫咖每日小票
+import { ref, computed, onMounted } from 'vue'
 import SectionTitle from './SectionTitle.vue'
 
 const d = ref(null)
-const year = new Date().getFullYear()
+const dateStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+
+const day = computed(() => (d.value && d.value.day) || null)
+const hasDay = computed(() => day.value && day.value.date)
 
 onMounted(async () => {
   try {
@@ -19,16 +22,18 @@ onMounted(async () => {
 <template>
   <section id="recap" v-if="d">
     <div class="container">
-      <SectionTitle title="年度账本" :sub="`${year} 年 · 猫咖营业报告`" />
+      <SectionTitle title="今日报告" :sub="`${dateStr} · 猫咖日报`" />
 
       <div class="receipt" v-reveal>
-        <div class="rline"><span>累计到店猪咪</span><b>{{ d.visits }} 只</b></div>
-        <div class="rline"><span>猫猫被撸</span><b>{{ d.pets }} 次</b></div>
-        <div class="rline"><span>被投喂</span><b>{{ d.feeds }} 次</b></div>
-        <div class="rline"><span>催更</span><b>{{ d.urges }} 次</b></div>
-        <div class="rline"><span>留言</span><b>{{ d.messages }} 条</b></div>
-        <div class="rline"><span>明信片</span><b>{{ d.postcards }} 张 · 获赞 {{ d.likes }}</b></div>
-        <div class="rline"><span>攒鱼干的猪咪</span><b>{{ d.pigmis }} 只</b></div>
+        <template v-if="hasDay">
+          <div class="rline"><span>今日到店猪咪</span><b>{{ day.visits }} 只</b></div>
+          <div class="rline"><span>猫猫被撸</span><b>{{ day.pets }} 次</b></div>
+          <div class="rline"><span>被投喂</span><b>{{ day.feeds }} 次</b></div>
+          <div class="rline"><span>催更</span><b>{{ day.urges }} 次</b></div>
+          <div class="rline"><span>新留言</span><b>{{ day.messages }} 条</b></div>
+          <div class="rline"><span>新明信片</span><b>{{ day.postcards }} 张 · 获赞 {{ day.likes }}</b></div>
+        </template>
+        <p v-else class="empty">今天还没开账,等你来第一单~</p>
         <div class="rsep" />
         <div v-if="d.topPost" class="rline hi">
           <span>👑 人气明信片</span><b>{{ d.topPost.nick }} · {{ d.topPost.likes }} 赞</b>
@@ -36,7 +41,7 @@ onMounted(async () => {
         <div v-if="d.topPigmi" class="rline hi">
           <span>🐟 鱼干首富</span><b>{{ d.topPigmi.nick }} · {{ d.topPigmi.points }}</b>
         </div>
-        <div class="rfoot">—— 感谢惠顾,明年也请多指教 ——</div>
+        <div class="rfoot">—— 今日营业中,欢迎常来 ——</div>
       </div>
     </div>
   </section>
@@ -90,6 +95,13 @@ onMounted(async () => {
 .rsep {
   border-bottom: 2px dashed var(--pink-soft);
   margin: 10px 0;
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 16px 0;
 }
 
 .rfoot {
