@@ -197,6 +197,18 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+// 店长专属昵称,猪咪们不能使用
+var reservedNicks = map[string]bool{
+	"爱丽丝":     true,
+	"爱丽丝猫猫酱": true,
+	"小涩猫爱丽丝": true,
+	"猪咪爱丽丝":  true,
+}
+
+func isReserved(nick string) bool {
+	return reservedNicks[strings.TrimSpace(nick)]
+}
+
 func clean(s string, max int) string {
 	s = strings.TrimSpace(s)
 	r := []rune(s)
@@ -272,6 +284,10 @@ func handleMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		m.Nick = clean(m.Nick, maxNickLen)
 		m.Content = clean(m.Content, maxTextLen)
+		if isReserved(m.Nick) {
+			writeJSON(w, 400, map[string]string{"error": "这个名字属于店长,换一个喵~"})
+			return
+		}
 		if m.Content == "" {
 			writeJSON(w, 400, map[string]string{"error": "留言内容不能为空喵"})
 			return
@@ -308,6 +324,10 @@ func handleUrge(w http.ResponseWriter, r *http.Request) {
 		var u Urge
 		json.NewDecoder(r.Body).Decode(&u)
 		u.Nick = clean(u.Nick, maxNickLen)
+		if isReserved(u.Nick) {
+			writeJSON(w, 400, map[string]string{"error": "这个名字属于店长,换一个喵~"})
+			return
+		}
 		if u.Nick == "" {
 			u.Nick = "匿名猪咪"
 		}
@@ -603,6 +623,10 @@ func handleWall(w http.ResponseWriter, r *http.Request) {
 		}
 
 		nick := clean(r.FormValue("nick"), maxNickLen)
+		if isReserved(nick) {
+			writeJSON(w, 400, map[string]string{"error": "这个名字属于店长,换一个喵~"})
+			return
+		}
 		if nick == "" {
 			nick = "匿名猪咪"
 		}
@@ -878,6 +902,10 @@ func handleComments(w http.ResponseWriter, r *http.Request) {
 		}
 		cm.Nick = clean(req.Nick, maxNickLen)
 		cm.Content = clean(req.Content, maxTextLen)
+		if isReserved(cm.Nick) {
+			writeJSON(w, 400, map[string]string{"error": "这个名字属于店长,换一个喵~"})
+			return
+		}
 		cm.Score = req.Score
 		if cm.Content == "" {
 			writeJSON(w, 400, map[string]string{"error": "评论内容不能为空喵"})
@@ -1024,6 +1052,10 @@ func handlePointsAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nick := clean(req.Nick, maxNickLen)
+	if isReserved(nick) {
+		writeJSON(w, 400, map[string]string{"error": "这个名字属于店长哦"})
+		return
+	}
 	if nick == "" || nick == "匿名猪咪" {
 		writeJSON(w, 400, map[string]string{"error": "需要昵称才能攒鱼干"})
 		return
