@@ -3,20 +3,31 @@ import { ref } from 'vue'
 
 const nick = ref('')
 const result = ref(null)
+const special = ref(null) // 店长专属头衔彩蛋
 const error = ref('')
 const querying = ref(false)
+
+// 彩蛋:店长专属昵称 → 专属头衔
+const SPECIAL_TITLES = {
+  '爱丽丝': { title: '店长本人?', desc: '这个味道……是本尊来了吗', icon: '👑' },
+  '爱丽丝猫猫酱': { title: '猫咖店长', desc: '欢迎店长巡视自家店铺!', icon: '🎀' },
+  '小涩猫爱丽丝': { title: '小涩猫本猫', desc: '喵呜,本体出现,全体注目!', icon: '✨' },
+  '猪咪爱丽丝': { title: '猪咪团团长', desc: '全体猪咪听令,列队欢迎!', icon: '🐷' },
+}
 
 async function query() {
   if (!nick.value.trim() || querying.value) return
   querying.value = true
   error.value = ''
   result.value = null
+  const name = nick.value.trim()
+  special.value = SPECIAL_TITLES[name] || null
   try {
-    const res = await fetch(`/api/points?nick=${encodeURIComponent(nick.value.trim())}`)
+    const res = await fetch(`/api/points?nick=${encodeURIComponent(name)}`)
     const data = await res.json()
     if (res.ok) {
       result.value = data
-      localStorage.setItem('catcafe_nick', nick.value.trim()) // 记住昵称,捡鱼干用
+      localStorage.setItem('catcafe_nick', name) // 记住昵称,捡鱼干用
     } else {
       error.value = data.error || '查询失败'
     }
@@ -38,7 +49,16 @@ async function query() {
     </div>
     <p v-if="error" class="err">{{ error }}</p>
 
-    <div v-if="result" class="result">
+    <div v-if="result && special" class="result special-card">
+      <div class="crown-icon">{{ special.icon }}</div>
+      <div class="title-line">
+        <span class="my-title special-title font-cute">{{ special.title }}</span>
+      </div>
+      <p class="special-desc">{{ special.desc }}</p>
+      <p class="next-tip">店长的鱼干罐:{{ result.points }}(店长不需要攒鱼干啦)</p>
+    </div>
+
+    <div v-else-if="result" class="result">
       <div class="title-line">
         <span class="my-title font-cute">{{ result.title }}</span>
         <span class="my-points">{{ result.points }} 鱼干</span>
@@ -145,5 +165,37 @@ h4 {
 .next-tip {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+/* 店长专属头衔彩蛋卡 */
+.special-card {
+  background: linear-gradient(135deg, #fff8e7, #ffeef4);
+  border: 2px solid #f0c86e;
+  border-radius: 16px;
+  padding: 18px 20px;
+  animation: goldGlow 1.8s ease-in-out infinite;
+}
+
+.crown-icon {
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+}
+
+.special-title {
+  background: linear-gradient(90deg, #d4a017, #e85d7f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.special-desc {
+  color: var(--ink);
+  font-size: 0.95rem;
+  margin: 6px 0;
+}
+
+@keyframes goldGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(240, 200, 110, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(240, 200, 110, 0.8); }
 }
 </style>
