@@ -40,7 +40,7 @@ const (
 	maxNickLen  = 20
 	maxTextLen  = 300
 	minInterval = 5 * time.Second
-	tokenTTL    = 7 * 24 * time.Hour
+	tokenTTL    = 30 * 24 * time.Hour
 	listenAddr  = "127.0.0.1:9090"
 
 	defaultAdminPass = "alice233" // 首次启动的默认密码,登录后请立即修改
@@ -95,6 +95,36 @@ var (
 	wallMu   sync.Mutex
 	wall     []WallPost
 )
+
+const tokensFile = "/var/lib/catcafe/tokens.json"
+
+// 登录态持久化:重启服务不掉登录
+func loadTokens() {
+	data, err := os.ReadFile(tokensFile)
+	if err != nil {
+		return
+	}
+	raw := map[string]int64{}
+	if json.Unmarshal(data, &raw) != nil {
+		return
+	}
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
+	for tok, exp := range raw {
+		if t := time.Unix(exp, 0); time.Now().Before(t) {
+			tokens[tok] = t
+		}
+	}
+}
+
+func saveTokens() {
+	raw := map[string]int64{}
+	for tok, exp := range tokens {
+		raw[tok] = exp.Unix()
+	}
+	data, _ := json.Marshal(raw)
+	os.WriteFile(tokensFile, data, 0600)
+}
 
 type WallPost struct {
 	Img   string `json:"img"`
@@ -197,6 +227,7 @@ func newToken() string {
 	tok := hex.EncodeToString(b)
 	tokenMu.Lock()
 	tokens[tok] = time.Now().Add(tokenTTL)
+	saveTokens()
 	tokenMu.Unlock()
 	return tok
 }
@@ -1050,6 +1081,7 @@ func main() {
 	loadStats()
 	loadComments()
 	loadPoints()
+	loadTokens()
 
 	// 首次启动:写入默认店主密码哈希
 	if _, err := os.Stat(passFile); os.IsNotExist(err) {
