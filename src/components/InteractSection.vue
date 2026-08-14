@@ -23,11 +23,11 @@ import SectionTitle from './SectionTitle.vue'
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 28px;
-  max-width: 980px;
+  grid-template-columns: 2fr 3fr; /* 留言板更宽,催更墙收窄 */
+  gap: 26px;
+  max-width: 1020px;
   margin: 0 auto;
-  align-items: start;
+  align-items: stretch; /* 两卡等高 */
 }
 
 @media (max-width: 720px) {
