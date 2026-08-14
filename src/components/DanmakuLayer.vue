@@ -41,7 +41,7 @@ function measure(text) {
 function cloudPath(tw, th, seed) {
   const padX = 34, padY = 24
   const w = tw + padX * 2, h = th + padY * 2
-  const TOP = 46
+  const TOP = 34
   const rnd = (i) => {
     const x = Math.sin(seed * 97 + i * 131) * 10000
     return x - Math.floor(x)
@@ -62,28 +62,12 @@ function cloudPath(tw, th, seed) {
   d += ` A ${sr} ${sr} 0 0 1 ${w} ${h / 2}`
   d += ` L ${w} ${h - cr}`
   d += ` A ${cr} ${cr} 0 0 1 ${w - cr} ${h}`
-  const b1 = 14 + rnd(41) * 5
-  d += ` A ${b1} ${b1} 0 0 1 ${w * 0.62} ${h}`
-  const b2 = 12 + rnd(42) * 5
-  d += ` A ${b2} ${b2} 0 0 1 ${w * 0.32} ${h}`
   d += ` L ${cr} ${h}`
   d += ` A ${cr} ${cr} 0 0 1 0 ${h - cr}`
   const sr2 = 11 + rnd(43) * 5
   d += ` A ${sr2} ${sr2} 0 0 1 0 ${h / 2 - 10}`
   d += ` L 0 ${cr}`
   d += ` A ${cr} ${cr} 0 0 1 ${cr} 0 Z`
-
-  // 猫耳朵(圆尖顶,骑在顶部鼓包上)
-  const ears = []
-  for (const [i, fx] of [[0, 0.28], [1, 0.7]]) {
-    const cx = w * (fx + (rnd(i + 30) - 0.5) * 0.05)
-    const r = 15 + rnd(i + 31) * 5
-    const baseY = 2
-    const tipY = baseY - r * 1.5
-    ears.push(
-      `M ${cx - r} ${baseY} Q ${cx - r * 0.2} ${tipY} ${cx} ${tipY} Q ${cx + r * 0.2} ${tipY} ${cx + r} ${baseY} Z`
-    )
-  }
 
   return {
     w: w + 24,
@@ -92,7 +76,6 @@ function cloudPath(tw, th, seed) {
     offX: -12,
     offY: -TOP + 6,
     d,
-    ears,
     padX,
     padY,
   }
@@ -180,13 +163,6 @@ onUnmounted(() => {
         <!-- 单条轮廓的云朵主体 -->
         <path
           :d="l.cloud.d"
-          fill="rgba(255,255,255,0.96)" stroke="#f4a9c0" stroke-width="2.5" stroke-linejoin="round"
-        />
-        <!-- 猫耳朵 -->
-        <path
-          v-for="(d, i) in l.cloud.ears"
-          :key="'e' + i"
-          :d="d"
           fill="rgba(255,255,255,0.96)" stroke="#f4a9c0" stroke-width="2.5" stroke-linejoin="round"
         />
       </svg>
