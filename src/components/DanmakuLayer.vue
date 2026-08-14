@@ -37,39 +37,64 @@ function measure(text) {
   return { w: measurer.offsetWidth, h: measurer.offsetHeight }
 }
 
-// 按文字尺寸生成"猫咪云":圆角主体(必包文字)+ 两只猫耳朵,鼓包只是装饰
+// 按文字尺寸生成"猫咪云":蓬松多层鼓包 + 猫耳朵,文字严格居中
 function cloudPath(tw, th, seed) {
-  const padX = 32, padY = 22
+  const padX = 34, padY = 24
   const w = tw + padX * 2, h = th + padY * 2
-  const TOP = 34 // 耳朵探出空间
+  const TOP = 46
   const rnd = (i) => {
     const x = Math.sin(seed * 97 + i * 131) * 10000
     return x - Math.floor(x)
   }
-  // 两只猫耳朵(尖顶圆弧,位置和大小轻微随机)
+  const cr = 14 // 圆角
+
+  // 单条轮廓:sweep=1 = 向行进方向左侧鼓 = 顺时针描边时全朝外
+  let d = `M ${cr} 0`
+  const n = Math.max(3, Math.min(5, Math.round(w / 58)))
+  const seg = (w - cr * 2) / n
+  for (let i = 0; i < n; i++) {
+    const middle = 1 - Math.abs(i - (n - 1) / 2) / ((n - 1) / 2 + 0.01)
+    const br = 16 + middle * 12 + rnd(i) * 5
+    d += ` A ${br} ${br} 0 0 1 ${cr + seg * (i + 1)} 0`
+  }
+  d += ` A ${cr} ${cr} 0 0 1 ${w} ${cr}`
+  const sr = 12 + rnd(40) * 5
+  d += ` A ${sr} ${sr} 0 0 1 ${w} ${h / 2}`
+  d += ` L ${w} ${h - cr}`
+  d += ` A ${cr} ${cr} 0 0 1 ${w - cr} ${h}`
+  const b1 = 14 + rnd(41) * 5
+  d += ` A ${b1} ${b1} 0 0 1 ${w * 0.62} ${h}`
+  const b2 = 12 + rnd(42) * 5
+  d += ` A ${b2} ${b2} 0 0 1 ${w * 0.32} ${h}`
+  d += ` L ${cr} ${h}`
+  d += ` A ${cr} ${cr} 0 0 1 0 ${h - cr}`
+  const sr2 = 11 + rnd(43) * 5
+  d += ` A ${sr2} ${sr2} 0 0 1 0 ${h / 2 - 10}`
+  d += ` L 0 ${cr}`
+  d += ` A ${cr} ${cr} 0 0 1 ${cr} 0 Z`
+
+  // 猫耳朵(圆尖顶,骑在顶部鼓包上)
   const ears = []
-  for (const [i, fx] of [[0, 0.26], [1, 0.68]]) {
-    const cx = w * (fx + (rnd(i) - 0.5) * 0.06)
-    const r = 15 + rnd(i + 5) * 6
-    const tipY = TOP - r * 1.55
+  for (const [i, fx] of [[0, 0.28], [1, 0.7]]) {
+    const cx = w * (fx + (rnd(i + 30) - 0.5) * 0.05)
+    const r = 15 + rnd(i + 31) * 5
+    const baseY = 2
+    const tipY = baseY - r * 1.5
     ears.push(
-      `M ${cx - r} ${TOP} Q ${cx - r * 0.25} ${tipY} ${cx} ${tipY} Q ${cx + r * 0.25} ${tipY} ${cx + r} ${TOP}`
+      `M ${cx - r} ${baseY} Q ${cx - r * 0.2} ${tipY} ${cx} ${tipY} Q ${cx + r * 0.2} ${tipY} ${cx + r} ${baseY} Z`
     )
   }
-  // 两耳之间一个小圆鼓包
-  const dr = 9 + rnd(9) * 5
-  const domes = [`M ${w / 2 - dr} ${TOP} A ${dr} ${dr} 0 0 0 ${w / 2 + dr} ${TOP}`]
+
   return {
-    w: w + 20,
-    h: h + TOP + 8,
-    vb: `-10 ${-TOP + 4} ${w + 20} ${h + TOP + 8}`,
-    offX: -10,
-    offY: -TOP + 4,
-    body: { x: 0, y: TOP, w, h, r: Math.min(24, h / 2) },
+    w: w + 24,
+    h: h + TOP,
+    vb: `-12 ${-TOP + 6} ${w + 24} ${h + TOP}`,
+    offX: -12,
+    offY: -TOP + 6,
+    d,
     ears,
-    domes,
     padX,
-    padY: padY + 6,
+    padY,
   }
 }
 
@@ -152,26 +177,17 @@ onUnmounted(() => {
         :style="{ left: l.cloud.offX + 'px', top: l.cloud.offY + 'px' }"
         aria-hidden="true"
       >
-        <!-- 主体圆角矩形(包住文字) -->
-        <rect
-          :x="l.cloud.body.x" :y="l.cloud.body.y"
-          :width="l.cloud.body.w" :height="l.cloud.body.h"
-          :rx="l.cloud.body.r"
-          fill="rgba(255,255,255,0.95)" stroke="#f4a9c0" stroke-width="2.5"
+        <!-- 单条轮廓的云朵主体 -->
+        <path
+          :d="l.cloud.d"
+          fill="rgba(255,255,255,0.96)" stroke="#f4a9c0" stroke-width="2.5" stroke-linejoin="round"
         />
         <!-- 猫耳朵 -->
         <path
           v-for="(d, i) in l.cloud.ears"
           :key="'e' + i"
           :d="d"
-          fill="rgba(255,255,255,0.95)" stroke="#f4a9c0" stroke-width="2.5" stroke-linejoin="round"
-        />
-        <!-- 耳间小鼓包 -->
-        <path
-          v-for="(d, i) in l.cloud.domes"
-          :key="'d' + i"
-          :d="d"
-          fill="rgba(255,255,255,0.95)" stroke="#f4a9c0" stroke-width="2.5" stroke-linecap="round"
+          fill="rgba(255,255,255,0.96)" stroke="#f4a9c0" stroke-width="2.5" stroke-linejoin="round"
         />
       </svg>
       <span class="dm-text" :style="{ padding: l.cloud.padY + 'px ' + l.cloud.padX + 'px' }">{{ l.text }}</span>
