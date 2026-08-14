@@ -7,11 +7,9 @@ const open = ref(false)
 const links = [
   { href: '#home', label: '首页' },
   { href: '#notice', label: '公告板' },
-  { href: '#author', label: '关于猫猫酱' },
   { href: '#novels', label: '小说菜单' },
   { href: '#gallery', label: '插画墙' },
   { href: '#interact', label: '互动区' },
-  { href: '#wall', label: '明信片墙' },
   { href: '#pigmi', label: '猪咪聚集地' },
 ]
 

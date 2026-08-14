@@ -37,24 +37,28 @@ function measure(text) {
   return { w: measurer.offsetWidth, h: measurer.offsetHeight }
 }
 
-// 按文字尺寸生成云朵:圆角矩形主体(必包文字)+ 顶部半球鼓包(纯装饰,绝不压字)
+// 按文字尺寸生成"猫咪云":圆角主体(必包文字)+ 两只猫耳朵,鼓包只是装饰
 function cloudPath(tw, th, seed) {
   const padX = 32, padY = 22
   const w = tw + padX * 2, h = th + padY * 2
-  const TOP = 30 // 鼓包探出空间
+  const TOP = 34 // 耳朵探出空间
   const rnd = (i) => {
     const x = Math.sin(seed * 97 + i * 131) * 10000
     return x - Math.floor(x)
   }
-  // 顶部 2-4 个大小错落的鼓包
-  const n = Math.max(2, Math.min(4, Math.round(w / 75)))
-  const domes = []
-  for (let i = 0; i < n; i++) {
-    const cx = w * (0.18 + (0.64 * i) / (n - 1))
-    const r = 15 + rnd(i) * 13
-    // 半球:从左到右,sweep 0 朝上鼓
-    domes.push(`M ${cx - r} ${TOP} A ${r} ${r} 0 0 0 ${cx + r} ${TOP}`)
+  // 两只猫耳朵(尖顶圆弧,位置和大小轻微随机)
+  const ears = []
+  for (const [i, fx] of [[0, 0.26], [1, 0.68]]) {
+    const cx = w * (fx + (rnd(i) - 0.5) * 0.06)
+    const r = 15 + rnd(i + 5) * 6
+    const tipY = TOP - r * 1.55
+    ears.push(
+      `M ${cx - r} ${TOP} Q ${cx - r * 0.25} ${tipY} ${cx} ${tipY} Q ${cx + r * 0.25} ${tipY} ${cx + r} ${TOP}`
+    )
   }
+  // 两耳之间一个小圆鼓包
+  const dr = 9 + rnd(9) * 5
+  const domes = [`M ${w / 2 - dr} ${TOP} A ${dr} ${dr} 0 0 0 ${w / 2 + dr} ${TOP}`]
   return {
     w: w + 20,
     h: h + TOP + 8,
@@ -62,9 +66,10 @@ function cloudPath(tw, th, seed) {
     offX: -10,
     offY: -TOP + 4,
     body: { x: 0, y: TOP, w, h, r: Math.min(24, h / 2) },
+    ears,
     domes,
     padX,
-    padY: padY + 6, // 文字稍微下移,远离鼓包
+    padY: padY + 6,
   }
 }
 
@@ -154,10 +159,17 @@ onUnmounted(() => {
           :rx="l.cloud.body.r"
           fill="rgba(255,255,255,0.95)" stroke="#f4a9c0" stroke-width="2.5"
         />
-        <!-- 鼓包:白色填充盖住主体上边线,只露粉色圆弧 -->
+        <!-- 猫耳朵 -->
+        <path
+          v-for="(d, i) in l.cloud.ears"
+          :key="'e' + i"
+          :d="d"
+          fill="rgba(255,255,255,0.95)" stroke="#f4a9c0" stroke-width="2.5" stroke-linejoin="round"
+        />
+        <!-- 耳间小鼓包 -->
         <path
           v-for="(d, i) in l.cloud.domes"
-          :key="i"
+          :key="'d' + i"
           :d="d"
           fill="rgba(255,255,255,0.95)" stroke="#f4a9c0" stroke-width="2.5" stroke-linecap="round"
         />

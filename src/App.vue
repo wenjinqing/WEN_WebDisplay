@@ -31,9 +31,9 @@ const commentingNovel = ref(null)
   <main>
     <HeroSection />
     <NoticeBoard />
-    <AboutAuthor />
     <NovelMenu @read="readingNovel = $event" @comments="commentingNovel = $event" />
     <GalleryWall />
+    <AboutAuthor />
     <InteractSection />
     <PigmiWall />
     <PigmiClub />
