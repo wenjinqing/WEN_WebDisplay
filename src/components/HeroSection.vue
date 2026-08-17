@@ -83,7 +83,7 @@ async function petCat() {
         </p>
         <div class="actions">
           <a href="#novels" class="btn-clay primary">📖 去看小说菜单</a>
-          <a :href="site.authorPixiv" target="_blank" rel="noopener" class="btn-clay ghost">
+          <a href="/go/pixiv.html" target="_blank" rel="noopener" class="btn-clay ghost">
             作者主页 ↗
           </a>
           <HandDoodle kind="arrow" :size="56" class="cta-arrow" />

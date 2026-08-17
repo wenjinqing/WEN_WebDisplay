@@ -46,8 +46,11 @@ onUnmounted(() => clearInterval(timer))
       <p v-if="online" class="note online-note">
         <span class="dot" />现在有 {{ online }} 只猪咪在店里
       </p>
-      <a :href="site.authorPixiv" target="_blank" rel="noopener" class="pixiv">
+      <a href="/go/pixiv.html" target="_blank" rel="noopener" class="pixiv">
         作者 P 站主页 ↗
+      </a>
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="beian">
+        闽ICP备2026031516号
       </a>
       <a href="/admin" class="pixiv admin-link">店主通道</a>
     </div>
@@ -94,6 +97,18 @@ onUnmounted(() => clearInterval(timer))
   color: var(--muted);
   font-size: 0.8rem;
   opacity: 0.7;
+}
+
+.beian {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: none;
+  margin-top: 6px;
+}
+
+.beian:hover {
+  color: var(--pink-deep);
+  text-decoration: underline;
 }
 
 .online-note {
