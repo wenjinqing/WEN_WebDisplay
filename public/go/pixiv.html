@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>即将离开小涩猫咖啡厅</title>
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(165deg, #fff6f8 0%, #ffe9f0 55%, #f6efff 100%);
+        font-family: 'Noto Sans SC', sans-serif;
+        color: #5b3a47;
+        padding: 20px;
+      }
+      .card {
+        background: #fffdfc;
+        border: 3px solid #ffc2d4;
+        border-radius: 24px;
+        box-shadow: 0 16px 40px rgba(233, 93, 127, 0.15);
+        max-width: 440px;
+        padding: 36px 32px;
+        text-align: center;
+      }
+      .paw { font-size: 2.2rem; margin-bottom: 12px; }
+      h1 {
+        font-family: 'ZCOOL KuaiLe', sans-serif;
+        font-size: 1.3rem;
+        color: #e85d7f;
+        margin-bottom: 14px;
+      }
+      p {
+        font-size: 0.92rem;
+        line-height: 1.9;
+        color: #5b3a47;
+      }
+      .dest {
+        display: inline-block;
+        background: #ffe4ec;
+        border-radius: 999px;
+        padding: 4px 18px;
+        color: #e85d7f;
+        font-size: 0.88rem;
+        margin: 14px 0;
+      }
+      .note {
+        font-size: 0.8rem;
+        color: #a07886;
+        margin-top: 12px;
+      }
+      .actions {
+        margin-top: 22px;
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 11px 26px;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        text-decoration: none;
+        border: 2px solid transparent;
+        transition: transform 0.15s;
+      }
+      .btn-primary {
+        background: #f9718f;
+        color: #fff;
+        box-shadow: 3px 4px 0 #d14a6e;
+      }
+      .btn-primary:hover { transform: translateY(-2px); }
+      .btn-ghost {
+        background: #fff;
+        color: #e85d7f;
+        border-color: #ffc2d4;
+      }
+      .count { color: #a07886; font-size: 0.82rem; margin-top: 14px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="paw">🐾</div>
+      <h1>即将离开小涩猫咖啡厅</h1>
+      <p>你正要前往外部网站:</p>
+      <div class="dest">pixiv.net(爱丽丝猫猫酱的主页)</div>
+      <p class="note">
+        外部网站的内容与本站无关,请注意辨别信息、保护个人信息安全。
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" id="go" href="https://www.pixiv.net/users/16689973" rel="noopener">立即前往 →</a>
+        <a class="btn btn-ghost" href="/">返回猫咖</a>
+      </div>
+      <p class="count"><span id="sec">3</span> 秒后自动跳转……</p>
+    </div>
+    <script>
+      let s = 3
+      const el = document.getElementById('sec')
+      const t = setInterval(() => {
+        s--
+        if (s <= 0) {
+          clearInterval(t)
+          location.href = 'https://www.pixiv.net/users/16689973'
+        } else {
+          el.textContent = s
+        }
+      }, 1000)
+    </script>
+  </body>
+</html>

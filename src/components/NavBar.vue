@@ -31,7 +31,7 @@ function onLogoClick() {
       </button>
       <nav :class="['links', { open }]">
         <a v-for="l in links" :key="l.href" :href="l.href" @click="open = false">{{ l.label }}</a>
-        <a :href="site.authorPixiv" target="_blank" rel="noopener" class="pixiv-link">作者P站 ↗</a>
+        <a href="/go/pixiv.html" target="_blank" rel="noopener" class="pixiv-link">作者P站 ↗</a>
       </nav>
     </div>
   </header>
