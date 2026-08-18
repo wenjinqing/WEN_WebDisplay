@@ -51,8 +51,10 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
               {{ expanded.has(i) ? '收起 ▲' : '展开全文 ▼' }}
             </button>
           </div>
-          <div v-if="m.reply" class="reply">
-            <span class="owner-badge font-cute">🐾 店长回复</span>
+          <div v-if="m.reply" class="reply" :class="{ keeper: m.replyBy === '猪咪君君' }">
+            <span class="owner-badge font-cute">
+              {{ m.replyBy === '猪咪君君' ? '🐷 猪咪饲养员 · 猪咪君君' : '🐾 店长回复' }}
+            </span>
             <p>{{ m.reply }}</p>
           </div>
         </div>
@@ -169,6 +171,16 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
   color: var(--ink);
   line-height: 1.6;
   word-break: break-word;
+}
+
+/* 饲养员回复:淡紫区分店长粉 */
+.reply.keeper {
+  background: #f0eafd;
+  border-left-color: #9b7ede;
+}
+
+.reply.keeper .owner-badge {
+  background: #9b7ede;
 }
 
 .empty {

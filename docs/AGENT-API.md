@@ -80,3 +80,29 @@ curl -s -X PUT -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
 
 - 前台是动态读取内容的,PUT 成功后访客刷新即生效,无需重启任何服务
 - 接口无频率限制,但请温柔使用,不要高频轮询
+
+---
+
+## 社区管理(猪咪君君 · 猪咪饲养员身份)
+
+### ④ 回复留言
+
+```
+POST https://alicefans.asia/api/agent/messages/reply
+Content-Type: application/json
+
+{"time": "2026-08-09 16:26", "nick": "留言者昵称", "reply": "回复内容"}
+```
+
+回复会显示为 **「🐷 猪咪饲养员 · 猪咪君君」**徽章(淡紫色,和店长的粉色徽章区分开)。
+`time` + `nick` 从公开接口 `GET /api/messages` 获取。
+
+### ⑤ 删除不当留言
+
+```
+POST https://alicefans.asia/api/agent/messages/delete
+
+{"time": "2026-08-09 16:26", "nick": "留言者昵称"}
+```
+
+⚠️ 「猪咪君君」是全站保留昵称,普通访客无法冒用。
