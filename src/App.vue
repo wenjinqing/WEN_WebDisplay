@@ -10,6 +10,7 @@ import CommentBox from './components/CommentBox.vue'
 import GalleryWall from './components/GalleryWall.vue'
 import InteractSection from './components/InteractSection.vue'
 import PigmiWall from './components/PigmiWall.vue'
+import PigFarm from './components/PigFarm.vue'
 import PigmiClub from './components/PigmiClub.vue'
 import RecapCard from './components/RecapCard.vue'
 import SiteFooter from './components/SiteFooter.vue'
@@ -36,6 +37,7 @@ const commentingNovel = ref(null)
     <AboutAuthor />
     <InteractSection />
     <PigmiWall />
+    <PigFarm />
     <PigmiClub />
     <RecapCard />
   </main>
