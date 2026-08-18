@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -100,6 +101,25 @@ var (
 )
 
 const tokensFile = "/var/lib/catcafe/tokens.json"
+const agentKeyFile = "/var/lib/catcafe/agent.key"
+
+var agentKey string // 机器管理员 API Key
+
+func loadAgentKey() {
+	data, err := os.ReadFile(agentKeyFile)
+	if err == nil {
+		agentKey = strings.TrimSpace(string(data))
+	}
+}
+
+// X-API-Key 校验(常量时间比较防时序侧漏)
+func agentOK(r *http.Request) bool {
+	if agentKey == "" {
+		return false
+	}
+	got := r.Header.Get("X-API-Key")
+	return subtle.ConstantTimeCompare([]byte(got), []byte(agentKey)) == 1
+}
 
 // 登录态持久化:重启服务不掉登录
 func loadTokens() {
@@ -1254,6 +1274,53 @@ func handleQR(w http.ResponseWriter, r *http.Request) {
 	w.Write(png)
 }
 
+// ---------- 机器管理员(agent)接口 ----------
+
+// GET /api/agent/content — 读取全站内容
+// PUT /api/agent/content — 整体更新内容(公告/小说/插画/资料等)
+func handleAgentContent(w http.ResponseWriter, r *http.Request) {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		handleContent(w, r)
+	case http.MethodPut:
+		body := http.MaxBytesReader(w, r.Body, 1<<20)
+		data, err := io.ReadAll(body)
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": "content too large"})
+			return
+		}
+		var check map[string]any
+		if err := json.Unmarshal(data, &check); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "invalid json"})
+			return
+		}
+		pretty, _ := json.MarshalIndent(check, "", "  ")
+		tmp := contentFile + ".tmp"
+		if err := os.WriteFile(tmp, pretty, 0644); err != nil {
+			writeJSON(w, 500, map[string]string{"error": "save failed"})
+			return
+		}
+		os.Rename(tmp, contentFile)
+		log.Printf("agent 更新了站点内容")
+		writeJSON(w, 200, map[string]string{"status": "saved"})
+	default:
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+	}
+}
+
+// GET /api/agent/stats — 运营数据(留言数/催更/访问量等,供 agent 决策)
+func handleAgentStats(w http.ResponseWriter, r *http.Request) {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return
+	}
+	handleRecap(w, r)
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -1268,6 +1335,7 @@ func main() {
 	loadComments()
 	loadPoints()
 	loadTokens()
+	loadAgentKey()
 
 	// 首次启动:写入默认店主密码哈希
 	if _, err := os.Stat(passFile); os.IsNotExist(err) {
@@ -1288,6 +1356,8 @@ func main() {
 	mux.HandleFunc("/api/points", handlePoints)
 	mux.HandleFunc("/api/points/add", handlePointsAdd)
 	mux.HandleFunc("/api/recap", handleRecap)
+	mux.HandleFunc("/api/agent/content", handleAgentContent)
+	mux.HandleFunc("/api/agent/stats", handleAgentStats)
 	mux.HandleFunc("/api/qr", handleQR)
 	mux.HandleFunc("/api/admin/export", handleExport)
 	mux.HandleFunc("/api/content", handleContent)
