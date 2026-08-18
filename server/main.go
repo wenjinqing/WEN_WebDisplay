@@ -73,7 +73,8 @@ type Message struct {
 	Nick    string `json:"nick"`
 	Content string `json:"content"`
 	Time    string `json:"time"`
-	Reply   string `json:"reply,omitempty"` // 店主回复
+	Reply   string `json:"reply,omitempty"`   // 回复内容
+	ReplyBy string `json:"replyBy,omitempty"` // 回复者:空=店长,猪咪君君=饲养员agent
 }
 
 type Urge struct {
@@ -226,6 +227,7 @@ var reservedNicks = map[string]bool{
 	"爱丽丝猫猫酱": true,
 	"小涩猫爱丽丝": true,
 	"猪咪爱丽丝":  true,
+	"猪咪君君":   true, // 饲养员 agent 专用
 }
 
 func isReserved(nick string) bool {
@@ -1321,6 +1323,85 @@ func handleAgentStats(w http.ResponseWriter, r *http.Request) {
 	handleRecap(w, r)
 }
 
+// POST /api/agent/messages/reply {time, nick, reply} — 以"猪咪君君(饲养员)"身份回复留言
+func handleAgentReply(w http.ResponseWriter, r *http.Request) {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Time  string `json:"time"`
+		Nick  string `json:"nick"`
+		Reply string `json:"reply"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "请求格式不对"})
+		return
+	}
+	mu.Lock()
+	found := false
+	for i := range store.Messages {
+		if store.Messages[i].Time == req.Time && store.Messages[i].Nick == req.Nick {
+			store.Messages[i].Reply = clean(req.Reply, maxTextLen)
+			store.Messages[i].ReplyBy = "猪咪君君"
+			found = true
+			break
+		}
+	}
+	if found {
+		saveStore()
+	}
+	mu.Unlock()
+	if !found {
+		writeJSON(w, 404, map[string]string{"error": "留言不存在"})
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "ok"})
+}
+
+// POST /api/agent/messages/delete {time, nick} — 删除不当留言(管理职责)
+func handleAgentMsgDelete(w http.ResponseWriter, r *http.Request) {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Time string `json:"time"`
+		Nick string `json:"nick"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "请求格式不对"})
+		return
+	}
+	mu.Lock()
+	found := false
+	for i, m := range store.Messages {
+		if m.Time == req.Time && m.Nick == req.Nick {
+			store.Messages = append(store.Messages[:i], store.Messages[i+1:]...)
+			found = true
+			break
+		}
+	}
+	if found {
+		saveStore()
+		log.Printf("agent 删除了留言: %s %s", req.Nick, req.Time)
+	}
+	mu.Unlock()
+	if !found {
+		writeJSON(w, 404, map[string]string{"error": "留言不存在"})
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -1358,6 +1439,8 @@ func main() {
 	mux.HandleFunc("/api/recap", handleRecap)
 	mux.HandleFunc("/api/agent/content", handleAgentContent)
 	mux.HandleFunc("/api/agent/stats", handleAgentStats)
+	mux.HandleFunc("/api/agent/messages/reply", handleAgentReply)
+	mux.HandleFunc("/api/agent/messages/delete", handleAgentMsgDelete)
 	mux.HandleFunc("/api/qr", handleQR)
 	mux.HandleFunc("/api/admin/export", handleExport)
 	mux.HandleFunc("/api/content", handleContent)
