@@ -17,6 +17,7 @@ import (
 	"image/png"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -1402,6 +1403,166 @@ func handleAgentMsgDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "deleted"})
 }
 
+// ---------- 全店养猪 ----------
+
+const pigFile = "/var/lib/catcafe/pig.json"
+
+type PigState struct {
+	XP      int     `json:"xp"`
+	Fed     int     `json:"fed"`
+	Pats    int     `json:"pats"`
+	Hunger  float64 `json:"hunger"` // 0-100 饱食度
+	Mood    float64 `json:"mood"`   // 0-100 心情
+	Updated int64   `json:"updated"`
+}
+
+var (
+	pigMu sync.Mutex
+	pig   PigState
+)
+
+var pigStages = []struct {
+	At   int
+	Name string
+}{
+	{0, "猪崽"},
+	{50, "小猪咪"},
+	{150, "圆润猪咪"},
+	{300, "猪王"},
+}
+
+func pigStage() (string, int, int) {
+	stage := pigStages[0].Name
+	next := -1
+	for i, st := range pigStages {
+		if pig.XP >= st.At {
+			stage = st.Name
+			if i+1 < len(pigStages) {
+				next = pigStages[i+1].At
+			}
+		}
+	}
+	if pig.XP >= pigStages[len(pigStages)-1].At {
+		next = 0 // 已满级
+	}
+	return stage, next, pig.XP
+}
+
+func loadPig() {
+	data, err := os.ReadFile(pigFile)
+	if err != nil {
+		pig = PigState{Hunger: 80, Mood: 80, Updated: time.Now().Unix()}
+		return
+	}
+	json.Unmarshal(data, &pig)
+}
+
+func savePig() {
+	data, _ := json.MarshalIndent(pig, "", "  ")
+	tmp := pigFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err == nil {
+		os.Rename(tmp, pigFile)
+	}
+}
+
+// 随时间掉饱食/心情(读取时惰性结算)
+func pigDecay() {
+	now := time.Now().Unix()
+	if pig.Updated == 0 {
+		pig.Updated = now
+	}
+	hours := float64(now-pig.Updated) / 3600
+	if hours > 0 {
+		pig.Hunger = math.Max(0, pig.Hunger-hours*4)
+		pig.Mood = math.Max(0, pig.Mood-hours*3)
+		pig.Updated = now
+	}
+}
+
+var lastFeed = map[string]time.Time{} // 喂食冷却(5分钟/IP)
+var lastPat = map[string]time.Time{}  // 摸头冷却(1分钟/IP)
+
+func cooldownOK(m map[string]time.Time, r *http.Request, d time.Duration) bool {
+	ip := clientIP(r)
+	rateMu.Lock()
+	defer rateMu.Unlock()
+	if t, ok := m[ip]; ok && time.Since(t) < d {
+		return false
+	}
+	m[ip] = time.Now()
+	return true
+}
+
+// GET /api/pig — 猪状态
+// POST /api/pig/feed — 喂食(+5经验,5分钟/次)
+// POST /api/pig/pet — 摸头(+2经验,1分钟/次)
+func handlePig(w http.ResponseWriter, r *http.Request) {
+	pigMu.Lock()
+	pigDecay()
+	pigMu.Unlock()
+
+	if r.Method == http.MethodGet {
+		pigMu.Lock()
+		stage, next, xp := pigStage()
+		out := map[string]any{
+			"stage": stage, "xp": xp, "next": next,
+			"hunger": int(pig.Hunger), "mood": int(pig.Mood),
+			"fed": pig.Fed, "pats": pig.Pats,
+		}
+		pigMu.Unlock()
+		writeJSON(w, 200, out)
+		return
+	}
+	writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+}
+
+func handlePigFeed(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	if !cooldownOK(lastFeed, r, 5*time.Minute) {
+		writeJSON(w, 429, map[string]string{"error": "刚喂过啦,它还在嚼,5分钟后再来"})
+		return
+	}
+	pigMu.Lock()
+	pigDecay()
+	oldStage, _, _ := pigStage()
+	pig.XP += 5
+	pig.Fed++
+	pig.Hunger = math.Min(100, pig.Hunger+25)
+	pig.Mood = math.Min(100, pig.Mood+10)
+	newStage, _, _ := pigStage()
+	savePig()
+	out := map[string]any{"stage": newStage, "xp": pig.XP, "hunger": int(pig.Hunger), "mood": int(pig.Mood), "fed": pig.Fed, "pats": pig.Pats}
+	if newStage != oldStage {
+		out["evolved"] = newStage // 进化了!
+	}
+	pigMu.Unlock()
+	writeJSON(w, 200, out)
+}
+
+func handlePigPet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	if !cooldownOK(lastPat, r, time.Minute) {
+		writeJSON(w, 429, map[string]string{"error": "摸得太勤啦,1分钟后再来"})
+		return
+	}
+	pigMu.Lock()
+	pigDecay()
+	pig.XP += 2
+	pig.Pats++
+	pig.Mood = math.Min(100, pig.Mood+15)
+	stage, _, _ := pigStage()
+	savePig()
+	out := map[string]any{"stage": stage, "xp": pig.XP, "hunger": int(pig.Hunger), "mood": int(pig.Mood), "fed": pig.Fed, "pats": pig.Pats}
+	pigMu.Unlock()
+	writeJSON(w, 200, out)
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -1417,6 +1578,7 @@ func main() {
 	loadPoints()
 	loadTokens()
 	loadAgentKey()
+	loadPig()
 
 	// 首次启动:写入默认店主密码哈希
 	if _, err := os.Stat(passFile); os.IsNotExist(err) {
@@ -1441,6 +1603,9 @@ func main() {
 	mux.HandleFunc("/api/agent/stats", handleAgentStats)
 	mux.HandleFunc("/api/agent/messages/reply", handleAgentReply)
 	mux.HandleFunc("/api/agent/messages/delete", handleAgentMsgDelete)
+	mux.HandleFunc("/api/pig", handlePig)
+	mux.HandleFunc("/api/pig/feed", handlePigFeed)
+	mux.HandleFunc("/api/pig/pet", handlePigPet)
 	mux.HandleFunc("/api/qr", handleQR)
 	mux.HandleFunc("/api/admin/export", handleExport)
 	mux.HandleFunc("/api/content", handleContent)
