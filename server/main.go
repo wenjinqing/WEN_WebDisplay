@@ -1312,7 +1312,13 @@ func handleAgentContent(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
-		handleContent(w, r)
+		// agent 返回完整内容(含真实群号)
+		data, err := os.ReadFile(contentFile)
+		if err != nil {
+			data = []byte(defaultContent)
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Write(data)
 	case http.MethodPut:
 		body := http.MaxBytesReader(w, r.Body, 1<<20)
 		data, err := io.ReadAll(body)
@@ -1324,6 +1330,15 @@ func handleAgentContent(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal(data, &check); err != nil {
 			writeJSON(w, 400, map[string]string{"error": "invalid json"})
 			return
+		}
+		// 防止打码群号覆盖真实值(agent 读到的是打码版)
+		if fc, ok := check["fanClub"].(map[string]any); ok && fc["qq"] == qqMask {
+			var old map[string]any
+			if oldData, err := os.ReadFile(contentFile); err == nil && json.Unmarshal(oldData, &old) == nil {
+				if ofc, ok := old["fanClub"].(map[string]any); ok {
+					fc["qq"] = ofc["qq"]
+				}
+			}
 		}
 		pretty, _ := json.MarshalIndent(check, "", "  ")
 		tmp := contentFile + ".tmp"
@@ -1346,6 +1361,19 @@ func handleAgentStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handleRecap(w, r)
+}
+
+// GET /api/admin/content-full — 店主后台读取完整内容(含真实群号)
+func handleAdminContentFull(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
+	data, err := os.ReadFile(contentFile)
+	if err != nil {
+		data = []byte(defaultContent)
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write(data)
 }
 
 // POST /api/agent/messages/reply {time, nick, reply} — 以"猪咪君君(饲养员)"身份回复留言
@@ -1693,6 +1721,7 @@ func main() {
 	mux.HandleFunc("/api/recap", handleRecap)
 	mux.HandleFunc("/api/agent/content", handleAgentContent)
 	mux.HandleFunc("/api/agent/stats", handleAgentStats)
+	mux.HandleFunc("/api/admin/content-full", handleAdminContentFull)
 	mux.HandleFunc("/api/agent/messages/reply", handleAgentReply)
 	mux.HandleFunc("/api/agent/messages/delete", handleAgentMsgDelete)
 	mux.HandleFunc("/api/gate/questions", handleGateQuestions)
