@@ -49,9 +49,20 @@ onUnmounted(() => clearInterval(timer))
       <a href="/go/pixiv.html" target="_blank" rel="noopener" class="pixiv">
         作者 P 站主页 ↗
       </a>
-      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="beian">
-        闽ICP备2026031516号
-      </a>
+      <div class="beian-row">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="beian">
+          闽ICP备2026031516号
+        </a>
+        <span class="sep-dot">·</span>
+        <a
+          href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=35072402000127"
+          target="_blank"
+          rel="noopener"
+          class="beian"
+        >
+          闽公网安备35072402000127号
+        </a>
+      </div>
       <a href="/admin" class="pixiv admin-link">店主通道</a>
     </div>
   </footer>
@@ -103,7 +114,20 @@ onUnmounted(() => clearInterval(timer))
   color: var(--muted);
   font-size: 0.8rem;
   text-decoration: none;
+}
+
+.beian-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
   margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.sep-dot {
+  color: var(--pink-soft);
+  font-size: 0.8rem;
 }
 
 .beian:hover {
