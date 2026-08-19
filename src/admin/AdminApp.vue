@@ -137,7 +137,7 @@ function logout() {
 let contentSnapshot = '' // 服务器内容快照,用于检测外部改动
 
 async function loadContent() {
-  const res = await fetch('/api/content')
+  const res = await fetch('/api/admin/content-full', { headers: authHeaders() })
   const text = await res.text()
   contentSnapshot = text
   Object.assign(c, JSON.parse(text))
@@ -154,7 +154,7 @@ async function save() {
   saving.value = true
   try {
     // 防覆盖:保存前先对比服务器最新内容,若已被别处改动则刷新并提示
-    const fresh = await (await fetch('/api/content')).text()
+    const fresh = await (await fetch('/api/admin/content-full', { headers: authHeaders() })).text()
     if (contentSnapshot && fresh !== contentSnapshot) {
       contentSnapshot = fresh
       Object.assign(c, JSON.parse(fresh))
@@ -168,7 +168,7 @@ async function save() {
     })
     if (res.status === 401) return logout()
     if (res.ok) {
-      contentSnapshot = await (await fetch('/api/content')).text() // 同步新快照
+      contentSnapshot = await (await fetch('/api/admin/content-full', { headers: authHeaders() })).text() // 同步新快照
       showToast('已保存!前台刷新即可看到 ✅')
     } else {
       showToast('保存失败')
