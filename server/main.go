@@ -76,6 +76,7 @@ type Message struct {
 	Time    string `json:"time"`
 	Reply   string `json:"reply,omitempty"`   // 回复内容
 	ReplyBy string `json:"replyBy,omitempty"` // 回复者:空=店长,猪咪君君=饲养员agent
+	By      string `json:"by,omitempty"`      // 发帖者:空=访客,agent=猪咪君君
 }
 
 type Urge struct {
@@ -103,6 +104,8 @@ var (
 )
 
 const tokensFile = "/var/lib/catcafe/tokens.json"
+const hubFile = "/var/lib/catcafe/hub.json" // 猪咪聚集地图文
+const hubDir = "/var/www/shared/hub"        // 聚集地图片目录(双站共享)
 const agentKeyFile = "/var/lib/catcafe/agent.key"
 
 var agentKey string // 机器管理员 API Key
@@ -1683,6 +1686,165 @@ func handleGateVerify(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"pass": true, "qq": qq})
 }
 
+// ---------- 猪咪聚集地(图文墙) ----------
+
+type HubPost struct {
+	ID   string `json:"id"`
+	Type string `json:"type"` // image | text
+	Img  string `json:"img,omitempty"`
+	Text string `json:"text,omitempty"`
+	Time string `json:"time"`
+	By   string `json:"by"` // agent=猪咪君君(饲养员)
+}
+
+var (
+	hubMu sync.Mutex
+	hub   []HubPost
+)
+
+func loadHub() {
+	data, err := os.ReadFile(hubFile)
+	if err == nil {
+		json.Unmarshal(data, &hub)
+	}
+}
+
+func saveHub() {
+	data, _ := json.MarshalIndent(hub, "", "  ")
+	tmp := hubFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err == nil {
+		os.Rename(tmp, hubFile)
+	}
+}
+
+// GET /api/hub — 公开:聚集地内容列表
+func handleHub(w http.ResponseWriter, r *http.Request) {
+	hubMu.Lock()
+	defer hubMu.Unlock()
+	if hub == nil {
+		hub = []HubPost{}
+	}
+	writeJSON(w, 200, hub)
+}
+
+// POST /api/agent/hub/text {text} — agent 发文字
+func handleAgentHubText(w http.ResponseWriter, r *http.Request) {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return
+	}
+	var req struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	text := clean(req.Text, 500)
+	if text == "" {
+		writeJSON(w, 400, map[string]string{"error": "内容不能为空"})
+		return
+	}
+	post := HubPost{
+		ID:   fmt.Sprintf("%d", time.Now().UnixNano()),
+		Type: "text",
+		Text: text,
+		Time: time.Now().Format("2006-01-02 15:04"),
+		By:   "agent",
+	}
+	hubMu.Lock()
+	hub = append([]HubPost{post}, hub...)
+	if len(hub) > 200 {
+		hub = hub[:200]
+	}
+	saveHub()
+	hubMu.Unlock()
+	log.Printf("agent 在聚集地发了文字")
+	writeJSON(w, 200, post)
+}
+
+// POST /api/agent/hub/image — agent 发图片(multipart file + note)
+func handleAgentHubImage(w http.ResponseWriter, r *http.Request) {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "文件太大(上限10MB)"})
+		return
+	}
+	f, header, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, 400, map[string]string{"error": "没有收到文件"})
+		return
+	}
+	defer f.Close()
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if !allowExt["gallery"][ext] {
+		writeJSON(w, 400, map[string]string{"error": "只支持 jpg/png/gif/webp"})
+		return
+	}
+	os.MkdirAll(hubDir, 0755)
+	name := fmt.Sprintf("%d-%s", time.Now().Unix(), safeName(header.Filename))
+	data, _ := io.ReadAll(f)
+	if err := saveImageCompressed(data, ext, filepath.Join(hubDir, name)); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "图片处理失败"})
+		return
+	}
+	post := HubPost{
+		ID:   fmt.Sprintf("%d", time.Now().UnixNano()),
+		Type: "image",
+		Img:  name,
+		Text: clean(r.FormValue("note"), 100),
+		Time: time.Now().Format("2006-01-02 15:04"),
+		By:   "agent",
+	}
+	hubMu.Lock()
+	hub = append([]HubPost{post}, hub...)
+	if len(hub) > 200 {
+		hub = hub[:200]
+	}
+	saveHub()
+	hubMu.Unlock()
+	log.Printf("agent 在聚集地发了图片: %s", name)
+	writeJSON(w, 200, post)
+}
+
+// POST /api/agent/messages/post {content} — 以猪咪君君身份在留言板发帖
+func handleAgentMsgPost(w http.ResponseWriter, r *http.Request) {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return
+	}
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	content := clean(req.Content, maxTextLen)
+	if content == "" {
+		writeJSON(w, 400, map[string]string{"error": "内容不能为空"})
+		return
+	}
+	m := Message{
+		Nick:    "猪咪君君",
+		Content: content,
+		Time:    time.Now().Format("2006-01-02 15:04"),
+		By:      "agent",
+	}
+	mu.Lock()
+	store.Messages = append([]Message{m}, store.Messages...)
+	if len(store.Messages) > maxMessages {
+		store.Messages = store.Messages[:maxMessages]
+	}
+	saveStore()
+	mu.Unlock()
+	writeJSON(w, 200, m)
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -1699,6 +1861,7 @@ func main() {
 	loadTokens()
 	loadAgentKey()
 	loadPig()
+	loadHub()
 
 	// 首次启动:写入默认店主密码哈希
 	if _, err := os.Stat(passFile); os.IsNotExist(err) {
@@ -1722,6 +1885,10 @@ func main() {
 	mux.HandleFunc("/api/agent/content", handleAgentContent)
 	mux.HandleFunc("/api/agent/stats", handleAgentStats)
 	mux.HandleFunc("/api/admin/content-full", handleAdminContentFull)
+	mux.HandleFunc("/api/hub", handleHub)
+	mux.HandleFunc("/api/agent/hub/text", handleAgentHubText)
+	mux.HandleFunc("/api/agent/hub/image", handleAgentHubImage)
+	mux.HandleFunc("/api/agent/messages/post", handleAgentMsgPost)
 	mux.HandleFunc("/api/agent/messages/reply", handleAgentReply)
 	mux.HandleFunc("/api/agent/messages/delete", handleAgentMsgDelete)
 	mux.HandleFunc("/api/gate/questions", handleGateQuestions)
