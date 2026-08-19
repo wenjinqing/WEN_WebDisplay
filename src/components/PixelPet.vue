@@ -5,6 +5,11 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 const hidden = ref(localStorage.getItem('catcafe_pet_hide') === '1')
 const isNight = ref(false)
 const laserOn = ref(false)   // 激光笔模式
+const portal = reactive({ active: false, x: 50, y: 50 }) // 赛博裂缝
+const pigGone = ref(false)   // 猪咪被吞进裂缝
+let catCommented = false     // 猫已评论过裂缝
+let portalTimer = null
+let suckTimers = []
 const gameMode = ref(false)  // 拍猪咪游戏中,看板娘回避
 const loveHearts = ref([])   // 贴贴爱心 {id, x, y}
 let togetherUntil = 0        // 贴贴截止时间
@@ -60,6 +65,42 @@ function tryTogether() {
     setTimeout(() => say(pig, '就要贴贴!', 2000), 1300)
     spawnHeart((cat.x + pig.x) / 2, Math.min(cat.y, pig.y) - 10)
   }
+}
+
+// ===== 赛博裂缝彩蛋 =====
+function schedulePortal() {
+  clearTimeout(portalTimer)
+  portalTimer = setTimeout(spawnPortal, 90000 + Math.random() * 180000) // 1.5~4.5分钟
+}
+
+function spawnPortal() {
+  if (hidden.value || isNight.value || gameMode.value || portal.active) {
+    schedulePortal()
+    return
+  }
+  portal.x = 18 + Math.random() * 64
+  portal.y = 22 + Math.random() * 56
+  portal.active = true
+  catCommented = false
+  setTimeout(closePortal, 60000) // 60秒后消失
+}
+
+function closePortal() {
+  portal.active = false
+  if (pigGone.value) {
+    // 猪咪从裂缝里爬回来
+    pigGone.value = false
+    pig.x = portal.x
+    pig.y = portal.y
+    pig.state = 'idle'
+    say(pig, '我刚才……去了哪里?', 3200)
+    say(cat, '猪咪!你回来了!', 3200)
+  }
+  schedulePortal()
+}
+
+function enterGlitch() {
+  location.href = '/glitch.html'
 }
 
 function say(who, text, ms = 3000) {
@@ -148,6 +189,35 @@ function moveToward(p, speed) {
 
 function step() {
   if (hidden.value || isNight.value || gameMode.value) return
+
+  // ===== 裂缝互动 =====
+  if (portal.active) {
+    // 猪咪路过被吞
+    if (!pigGone.value && !pig.held) {
+      const d = Math.hypot(pig.x - portal.x, pig.y - portal.y)
+      if (d < 8) {
+        pigGone.value = true
+        pig.state = 'sucked'
+        say(pig, '呀啊啊——!', 1500)
+        // 猫的反应时间线
+        suckTimers.push(setTimeout(() => say(cat, '咦?猪咪呢?', 2400), 2000))
+        suckTimers.push(setTimeout(() => say(cat, '猪咪不见了!你看到它了吗?快救救猪咪!', 4000), 4600))
+        suckTimers.push(setTimeout(() => {
+          // 猫跑到裂缝边守着
+          cat.state = 'walk'
+          setPath(cat, portal.x + 8, Math.min(portal.y + 6, 92))
+        }, 4800))
+      }
+    }
+    // 猫路过吐槽(只一次)
+    if (!pigGone.value && !catCommented) {
+      const d = Math.hypot(cat.x - portal.x, cat.y - portal.y)
+      if (d < 13) {
+        catCommented = true
+        say(cat, '这是什么??怪怪的……', 2600)
+      }
+    }
+  }
 
   // ===== 激光笔:猫全速追红点 =====
   if (laserOn.value && !cat.held) {
@@ -569,6 +639,7 @@ onMounted(() => {
   nightTimer = setInterval(checkNight, 30000)
   checkNight()
   pickTarget(cat)
+  schedulePortal() // 启动裂缝彩蛋调度
 })
 
 onUnmounted(() => {
@@ -585,6 +656,8 @@ onUnmounted(() => {
   clearInterval(bubbleTimer)
   clearInterval(nightTimer)
   clearTimeout(crackerTimer)
+  clearTimeout(portalTimer)
+  suckTimers.forEach(clearTimeout)
 })
 </script>
 
@@ -638,8 +711,23 @@ onUnmounted(() => {
       </span>
     </div>
 
+    <!-- 赛博裂缝(点了进去) -->
+    <div
+      v-if="portal.active"
+      class="portal"
+      :style="{ left: portal.x + 'vw', top: portal.y + 'vh' }"
+      role="button"
+      aria-label="神秘裂缝"
+      @click="enterGlitch"
+    >
+      <div class="portal-ring" />
+      <div class="portal-ring r2" />
+      <div class="portal-core" />
+      <span class="portal-label">???</span>
+    </div>
+
     <!-- 猪咪跟屁虫(可拖拽) -->
-    <div v-show="!gameMode" class="pet pig" :class="{ held: pig.held }" :style="{ left: pig.x + 'vw', top: pig.y + 'vh' }">
+    <div v-show="!gameMode && !pigGone" class="pet pig" :class="{ held: pig.held, sucked: pig.state === 'sucked' }" :style="{ left: pig.x + 'vw', top: pig.y + 'vh' }">
       <transition name="bub">
         <span v-if="pig.bubble" class="pet-bubble pig-bubble">{{ pig.bubble }}</span>
       </transition>
@@ -858,6 +946,78 @@ onUnmounted(() => {
 @keyframes sparkle {
   0%, 100% { transform: translate(-50%, -100%) scale(1); }
   50% { transform: translate(-50%, -110%) scale(1.15); }
+}
+
+/* ===== 赛博裂缝 ===== */
+.portal {
+  position: fixed;
+  z-index: 53;
+  width: 96px;
+  height: 96px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  animation: portalIn 0.5s ease;
+}
+
+@keyframes portalIn {
+  from { transform: translate(-50%, -50%) scale(0); }
+  to { transform: translate(-50%, -50%) scale(1); }
+}
+
+.portal-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(#ff5da2, #c5a3ff, #1a0b1e, #ff5da2);
+  animation: spin 2.4s linear infinite;
+  filter: blur(1px);
+}
+
+.portal-ring.r2 {
+  inset: 12px;
+  background: conic-gradient(#1a0b1e, #ff9ecf, #c5a3ff, #1a0b1e);
+  animation: spinR 1.7s linear infinite;
+}
+
+.portal-core {
+  position: absolute;
+  inset: 30px;
+  border-radius: 50%;
+  background: #07070c;
+  box-shadow: 0 0 24px 6px rgba(255, 93, 162, 0.65), inset 0 0 12px #000;
+  animation: corePulse 1.2s ease-in-out infinite;
+}
+
+.portal-label {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ff9ecf;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  animation: flick 1.6s steps(1) infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spinR { to { transform: rotate(-360deg); } }
+@keyframes corePulse {
+  0%, 100% { box-shadow: 0 0 24px 6px rgba(255, 93, 162, 0.65), inset 0 0 12px #000; }
+  50% { box-shadow: 0 0 36px 12px rgba(197, 163, 255, 0.5), inset 0 0 16px #000; }
+}
+@keyframes flick {
+  0%, 80% { opacity: 1; }
+  90% { opacity: 0.2; }
+  100% { opacity: 1; }
+}
+
+/* 猪被吞:旋转缩小进洞 */
+.pet.sucked .pet-img {
+  animation: suckedIn 0.8s ease-in forwards !important;
+}
+
+@keyframes suckedIn {
+  to { transform: scale(0) rotate(720deg); }
 }
 
 .pet-toast {
