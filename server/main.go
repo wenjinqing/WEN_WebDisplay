@@ -412,11 +412,23 @@ func saveImageCompressed(data []byte, ext, dst string) error {
 
 // ---------- 站点内容 ----------
 
-// GET /api/content — 公开,前台启动时拉取
+const qqMask = "答题验证后可见"
+
+// GET /api/content — 公开,前台启动时拉取(群号打码)
 func handleContent(w http.ResponseWriter, r *http.Request) {
 	data, err := os.ReadFile(contentFile)
 	if err != nil {
 		data = []byte(defaultContent)
+	}
+	// 隐藏群号:fanClub.qq 替换为提示语
+	var c map[string]any
+	if json.Unmarshal(data, &c) == nil {
+		if fc, ok := c["fanClub"].(map[string]any); ok {
+			if _, has := fc["qq"]; has {
+				fc["qq"] = qqMask
+				data, _ = json.Marshal(c)
+			}
+		}
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Write(data)
@@ -1575,6 +1587,74 @@ func handlePigPet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, out)
 }
 
+// ---------- 入群答题验证 ----------
+
+// 作品 → 主角(答案表,答对任意一个主角即算对)
+var gateNovels = []struct {
+	Title string
+	Heros []string
+}{
+	{"我才不会做宠物呢", []string{"璃沢", "莫琳娜"}},
+	{"白天是黑长直萝莉优等生,晚上被富家大小姐当做小宠物", []string{"洛小雪"}},
+	{"诱受萝莉的百合修仙传奇", []string{"苏泱"}},
+	{"战败魔法少女的涩涩艺术品博物馆", []string{"奈叶"}},
+}
+
+// GET /api/gate/questions — 返回作品名列表(不含答案)
+func handleGateQuestions(w http.ResponseWriter, r *http.Request) {
+	titles := make([]string, len(gateNovels))
+	for i, n := range gateNovels {
+		titles[i] = n.Title
+	}
+	writeJSON(w, 200, titles)
+}
+
+// POST /api/gate/verify {answer: "..."} — 答对任意作品名或主角名即放行
+func handleGateVerify(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Answer string `json:"answer"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	if rateLimited(r) {
+		writeJSON(w, 429, map[string]string{"error": "试得太快啦,歇一会儿再试"})
+		return
+	}
+	// 归一化:去书名号、空格、大小写
+	norm := strings.ToLower(strings.NewReplacer("《", "", "》", "", " ", "", "　", "").Replace(strings.TrimSpace(req.Answer)))
+	pass := false
+	for _, n := range gateNovels {
+		if norm == strings.ToLower(n.Title) {
+			pass = true
+			break
+		}
+		for _, h := range n.Heros {
+			if norm == strings.ToLower(h) {
+				pass = true
+				break
+			}
+		}
+	}
+	if !pass {
+		writeJSON(w, 200, map[string]any{"pass": false})
+		return
+	}
+	var c map[string]any
+	qq := ""
+	if data, err := os.ReadFile(contentFile); err == nil && json.Unmarshal(data, &c) == nil {
+		if fc, ok := c["fanClub"].(map[string]any); ok {
+			qq, _ = fc["qq"].(string)
+		}
+	}
+	writeJSON(w, 200, map[string]any{"pass": true, "qq": qq})
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -1615,6 +1695,8 @@ func main() {
 	mux.HandleFunc("/api/agent/stats", handleAgentStats)
 	mux.HandleFunc("/api/agent/messages/reply", handleAgentReply)
 	mux.HandleFunc("/api/agent/messages/delete", handleAgentMsgDelete)
+	mux.HandleFunc("/api/gate/questions", handleGateQuestions)
+	mux.HandleFunc("/api/gate/verify", handleGateVerify)
 	mux.HandleFunc("/api/pig", handlePig)
 	mux.HandleFunc("/api/pig/feed", handlePigFeed)
 	mux.HandleFunc("/api/pig/pet", handlePigPet)
