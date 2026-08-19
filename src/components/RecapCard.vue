@@ -1,13 +1,53 @@
 <script setup>
-// 今日报告:猫咖每日小票
+// 营业报告:今日 / 本月 / 总账 三档小票
 import { ref, computed, onMounted } from 'vue'
 import SectionTitle from './SectionTitle.vue'
 
 const d = ref(null)
-const dateStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+const tab = ref('day') // day | month | all
 
-const day = computed(() => (d.value && d.value.day) || null)
-const hasDay = computed(() => day.value && day.value.date)
+const dateStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+const monthStr = new Date().toLocaleDateString('zh-CN', { month: 'long' })
+
+const tabs = [
+  { key: 'day', label: '今日' },
+  { key: 'month', label: '本月' },
+  { key: 'all', label: '总账' },
+]
+
+const sub = computed(() => {
+  if (tab.value === 'day') return `${dateStr} · 猫咖日报`
+  if (tab.value === 'month') return `${monthStr} · 猫咖月报`
+  return '开店以来 · 总账'
+})
+
+// 按当前标签取数
+const lines = computed(() => {
+  if (!d.value) return []
+  if (tab.value === 'all') {
+    const t = d.value
+    return [
+      ['累计到店猪咪', `${t.visits} 只`],
+      ['猫猫被撸', `${t.pets} 次`],
+      ['被投喂', `${t.feeds} 次`],
+      ['催更', `${t.urges} 次`],
+      ['留言', `${t.messages} 条`],
+      ['明信片', `${t.postcards} 张 · 获赞 ${t.likes}`],
+      ['攒鱼干的猪咪', `${t.pigmis} 只`],
+    ]
+  }
+  const src = tab.value === 'day' ? d.value.day : d.value.month
+  if (!src || !src.date) return []
+  const p = tab.value === 'day' ? '今日' : '本月'
+  return [
+    [`${p}到店猪咪`, `${src.visits} 只`],
+    [`猫猫被撸`, `${src.pets} 次`],
+    [`被投喂`, `${src.feeds} 次`],
+    [`催更`, `${src.urges} 次`],
+    [`新留言`, `${src.messages} 条`],
+    [`新明信片`, `${src.postcards} 张 · 获赞 ${src.likes}`],
+  ]
+})
 
 onMounted(async () => {
   try {
@@ -22,18 +62,26 @@ onMounted(async () => {
 <template>
   <section id="recap" v-if="d">
     <div class="container">
-      <SectionTitle title="今日报告" :sub="`${dateStr} · 猫咖日报`" />
+      <SectionTitle title="营业报告" :sub="sub" />
+
+      <div class="mini-tabs" v-reveal>
+        <button
+          v-for="t in tabs"
+          :key="t.key"
+          :class="{ active: tab === t.key }"
+          @click="tab = t.key"
+        >
+          {{ t.label }}
+        </button>
+      </div>
 
       <div class="receipt" v-reveal>
-        <template v-if="hasDay">
-          <div class="rline"><span>今日到店猪咪</span><b>{{ day.visits }} 只</b></div>
-          <div class="rline"><span>猫猫被撸</span><b>{{ day.pets }} 次</b></div>
-          <div class="rline"><span>被投喂</span><b>{{ day.feeds }} 次</b></div>
-          <div class="rline"><span>催更</span><b>{{ day.urges }} 次</b></div>
-          <div class="rline"><span>新留言</span><b>{{ day.messages }} 条</b></div>
-          <div class="rline"><span>新明信片</span><b>{{ day.postcards }} 张 · 获赞 {{ day.likes }}</b></div>
+        <template v-if="lines.length">
+          <div v-for="(l, i) in lines" :key="i" class="rline">
+            <span>{{ l[0] }}</span><b>{{ l[1] }}</b>
+          </div>
         </template>
-        <p v-else class="empty">今天还没开账,等你来第一单~</p>
+        <p v-else class="empty">还没有开账,等你来第一单~</p>
         <div class="rsep" />
         <div v-if="d.topPost" class="rline hi">
           <span>👑 人气明信片</span><b>{{ d.topPost.nick }} · {{ d.topPost.likes }} 赞</b>
@@ -48,6 +96,30 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.mini-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.mini-tabs button {
+  border: 2px solid var(--pink-soft);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 22px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mini-tabs button.active {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+}
+
 .receipt {
   max-width: 420px;
   margin: 0 auto;

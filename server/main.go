@@ -849,10 +849,11 @@ type Stats struct {
 	TodayCount int    `json:"todayCount"`
 	Pets       int    `json:"pets"`  // 猫猫被撸次数
 	Feeds      int    `json:"feeds"` // 全店投喂次数
-	Day        Daily  `json:"day"` // 今日数据
+	Day        Daily  `json:"day"`   // 今日数据
+	Month      Daily  `json:"month"` // 本月数据
 }
 
-// 每日计数:跨天自动清零
+// 每日计数:跨天自动清零,跨月自动清月账
 func bumpDaily(field string) {
 	statsMu.Lock()
 	defer statsMu.Unlock()
@@ -860,26 +861,35 @@ func bumpDaily(field string) {
 	if stats.Day.Date != today {
 		stats.Day = Daily{Date: today}
 	}
-	switch field {
-	case "visits":
-		stats.Day.Visits++
-	case "pets":
-		stats.Day.Pets++
-	case "feeds":
-		stats.Day.Feeds++
-	case "urges":
-		stats.Day.Urges++
-	case "messages":
-		stats.Day.Messages++
-	case "comments":
-		stats.Day.Comments++
-	case "postcards":
-		stats.Day.Postcards++
-	case "likes":
-		stats.Day.Likes++
+	thisMonth := time.Now().Format("2006-01")
+	if stats.Month.Date != thisMonth {
+		stats.Month = Daily{Date: thisMonth}
 	}
+	bumpOne(&stats.Day, field)
+	bumpOne(&stats.Month, field)
 	data, _ := json.Marshal(stats)
 	os.WriteFile(statsFile, data, 0644)
+}
+
+func bumpOne(d *Daily, field string) {
+	switch field {
+	case "visits":
+		d.Visits++
+	case "pets":
+		d.Pets++
+	case "feeds":
+		d.Feeds++
+	case "urges":
+		d.Urges++
+	case "messages":
+		d.Messages++
+	case "comments":
+		d.Comments++
+	case "postcards":
+		d.Postcards++
+	case "likes":
+		d.Likes++
+	}
 }
 
 var (
@@ -1217,6 +1227,7 @@ func handleRecap(w http.ResponseWriter, r *http.Request) {
 
 	statsMu.Lock()
 	day := stats.Day
+	month := stats.Month
 	statsMu.Unlock()
 	out := map[string]any{
 		"messages":  msgCount,
@@ -1229,6 +1240,7 @@ func handleRecap(w http.ResponseWriter, r *http.Request) {
 		"feeds":     feeds,
 		"pigmis":    pigmiCount,
 		"day":       day,
+		"month":     month,
 	}
 	if topPost != nil && topPost.Likes > 0 {
 		out["topPost"] = map[string]any{"nick": topPost.Nick, "likes": topPost.Likes}
