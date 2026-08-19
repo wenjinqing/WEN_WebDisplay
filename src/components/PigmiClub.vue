@@ -6,7 +6,10 @@ import LevelQuery from './LevelQuery.vue'
 import { site } from '../data.js'
 
 // 入群验证:答对任意一部作品名或主角名即可看到群号
-const unlocked = ref(localStorage.getItem('catcafe_gate_qq') || '')
+// 校验本地存档:必须含数字(防止打码值被误存的脏数据)
+const savedQQ = localStorage.getItem('catcafe_gate_qq') || ''
+const unlocked = ref(/\d{5,}/.test(savedQQ) ? savedQQ : '')
+if (savedQQ && !/\d{5,}/.test(savedQQ)) localStorage.removeItem('catcafe_gate_qq')
 const answer = ref('')
 const checking = ref(false)
 const wrong = ref(false)
