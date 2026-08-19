@@ -54,8 +54,11 @@ async function verify() {
           <h3 class="font-cute">{{ site.fanClub.name }}</h3>
           <p>{{ site.fanClub.desc }}</p>
 
-          <!-- 已解锁:显示群号 -->
-          <p v-if="unlocked" class="qq font-cute">🐾 {{ unlocked }}</p>
+          <!-- 已解锁:显示群号 + 聚集地入口 -->
+          <template v-if="unlocked">
+            <p class="qq font-cute">🐾 {{ unlocked }}</p>
+            <a href="/hub" class="btn btn-primary hub-link">🏠 进入猪咪聚集地 →</a>
+          </template>
 
           <!-- 未解锁:答题验证 -->
           <div v-else class="gate">
@@ -155,6 +158,11 @@ async function verify() {
   color: var(--pink-deep);
   font-size: 0.82rem;
   margin-top: 8px;
+}
+
+.hub-link {
+  margin-top: 12px;
+  display: inline-flex;
 }
 
 @media (max-width: 720px) {

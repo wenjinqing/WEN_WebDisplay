@@ -42,7 +42,10 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
         <div class="avatar"><PawPrint :size="18" color="#fff" /></div>
         <div class="bubble-wrap">
           <div class="msg-head">
-            <b>{{ m.nick }}</b>
+            <b>
+              {{ m.nick }}
+              <span v-if="m.by === 'agent'" class="keeper-tag">🐷 饲养员</span>
+            </b>
             <time>{{ m.time }}</time>
           </div>
           <div class="bubble">
@@ -118,6 +121,17 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
   color: var(--muted);
   font-size: 0.75rem;
   flex-shrink: 0;
+}
+
+.keeper-tag {
+  display: inline-block;
+  background: #9b7ede;
+  color: #fff;
+  font-size: 0.68rem;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 6px;
+  vertical-align: 1px;
 }
 
 .bubble p {
