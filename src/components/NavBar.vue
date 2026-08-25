@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import PawPrint from './PawPrint.vue'
 import { site } from '../data.js'
 
@@ -17,6 +17,53 @@ const links = [
 function onLogoClick() {
   window.dispatchEvent(new CustomEvent('catcafe-logo-click'))
 }
+
+// PWA 下载应用:可安装时直接弹系统安装框,
+// 否则(iOS / 已安装过 / 浏览器不支持)给出手动安装指引
+const installed = ref(false)
+const tip = ref('')
+let deferredPrompt = null
+let tipTimer = null
+
+function onBeforeInstall(e) {
+  e.preventDefault()
+  deferredPrompt = e
+}
+
+function onAppInstalled() {
+  installed.value = true
+  tip.value = ''
+}
+
+async function onInstallClick() {
+  open.value = false
+  if (deferredPrompt) {
+    deferredPrompt.prompt()
+    await deferredPrompt.userChoice.catch(() => null)
+    deferredPrompt = null
+    return
+  }
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  tip.value = isIOS
+    ? '用 Safari 打开本站 → 点底部「分享」→「添加到主屏幕」就下好了喵~'
+    : '点浏览器菜单(右上角 ⋮ 或底部 ≡)→「安装应用」/「添加到主屏幕」即可下载喵~'
+  clearTimeout(tipTimer)
+  tipTimer = setTimeout(() => (tip.value = ''), 6000)
+}
+
+onMounted(() => {
+  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+    installed.value = true
+  }
+  window.addEventListener('beforeinstallprompt', onBeforeInstall)
+  window.addEventListener('appinstalled', onAppInstalled)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+  window.removeEventListener('appinstalled', onAppInstalled)
+  clearTimeout(tipTimer)
+})
 </script>
 
 <template>
@@ -31,9 +78,11 @@ function onLogoClick() {
       </button>
       <nav :class="['links', { open }]">
         <a v-for="l in links" :key="l.href" :href="l.href" @click="open = false">{{ l.label }}</a>
+        <button v-if="!installed" class="install-link" @click="onInstallClick">下载应用</button>
         <a href="/go/pixiv.html" target="_blank" rel="noopener" class="pixiv-link">作者P站 ↗</a>
       </nav>
     </div>
+    <div v-if="tip" class="install-tip">{{ tip }}</div>
   </header>
 </template>
 
@@ -88,6 +137,40 @@ function onLogoClick() {
   font-weight: 500;
 }
 
+.install-link {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--pink-deep);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.install-link:hover {
+  opacity: 0.85;
+}
+
+.install-tip {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  max-width: min(90vw, 420px);
+  padding: 12px 20px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--card);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  text-align: center;
+  z-index: 60;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
 .burger {
   display: none;
   flex-direction: column;
@@ -124,11 +207,16 @@ function onLogoClick() {
     transition: max-height 0.3s ease;
   }
   .links.open {
-    max-height: 320px;
+    max-height: 380px;
   }
   .links a {
     width: 100%;
     padding: 14px 24px;
+  }
+  .install-link {
+    margin: 8px 24px 4px;
+    padding: 10px 16px;
+    align-self: flex-start;
   }
   .pixiv-link {
     margin: 8px 24px 16px;
