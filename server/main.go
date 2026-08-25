@@ -128,6 +128,15 @@ func agentOK(r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(got), []byte(agentKey)) == 1
 }
 
+// agent 接口统一门禁:API Key 通过才放行
+func gateAgent(w http.ResponseWriter, r *http.Request) bool {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return false
+	}
+	return true
+}
+
 // 登录态持久化:重启服务不掉登录
 func loadTokens() {
 	data, err := os.ReadFile(tokensFile)
@@ -583,6 +592,11 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
+	handleUploadInner(w, r, "店主")
+}
+
+// 上传公共逻辑(店主后台 / agent 共用)
+func handleUploadInner(w http.ResponseWriter, r *http.Request, who string) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
 		return
@@ -625,7 +639,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "文件处理失败,换一个试试"})
 		return
 	}
-	log.Printf("店主上传了文件: %s/%s", typ, name)
+	log.Printf("%s上传了文件: %s/%s", who, typ, name)
 	writeJSON(w, 200, map[string]string{"file": name})
 }
 
@@ -633,6 +647,11 @@ func handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
+	handleDeleteFileInner(w, r, "店主")
+}
+
+// 删文件公共逻辑(店主后台 / agent 共用)
+func handleDeleteFileInner(w http.ResponseWriter, r *http.Request, who string) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
 		return
@@ -651,6 +670,7 @@ func handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	os.Remove(filepath.Join(dir, req.File))
+	log.Printf("%s删除了文件: %s/%s", who, req.Type, req.File)
 	writeJSON(w, 200, map[string]string{"status": "deleted"})
 }
 
@@ -803,6 +823,11 @@ func handleWallDelete(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
+	handleWallDeleteInner(w, r, "店主")
+}
+
+// 撤明信片公共逻辑(店主后台 / agent 共用)
+func handleWallDeleteInner(w http.ResponseWriter, r *http.Request, who string) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
 		return
@@ -825,6 +850,7 @@ func handleWallDelete(w http.ResponseWriter, r *http.Request) {
 	saveWall()
 	wallMu.Unlock()
 	os.Remove(filepath.Join(wallDir, req.Img))
+	log.Printf("%s撤下了明信片: %s", who, req.Img)
 	writeJSON(w, 200, map[string]string{"status": "deleted"})
 }
 
@@ -833,6 +859,15 @@ func handleWallDelete(w http.ResponseWriter, r *http.Request) {
 // POST /api/admin/messages/delete {time, nick} — 删除留言
 func handleMessageDelete(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
+		return
+	}
+	handleMessageDeleteInner(w, r, "店主")
+}
+
+// 删留言公共逻辑(店主后台 / agent 共用)
+func handleMessageDeleteInner(w http.ResponseWriter, r *http.Request, who string) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
 		return
 	}
 	var req struct {
@@ -844,14 +879,23 @@ func handleMessageDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mu.Lock()
+	found := false
 	for i, m := range store.Messages {
 		if m.Time == req.Time && m.Nick == req.Nick {
 			store.Messages = append(store.Messages[:i], store.Messages[i+1:]...)
+			found = true
 			break
 		}
 	}
-	saveStore()
+	if found {
+		saveStore()
+		log.Printf("%s删除了留言: %s %s", who, req.Nick, req.Time)
+	}
 	mu.Unlock()
+	if !found {
+		writeJSON(w, 404, map[string]string{"error": "留言不存在"})
+		return
+	}
 	writeJSON(w, 200, map[string]string{"status": "deleted"})
 }
 
@@ -1323,6 +1367,11 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	if !requireAuth(w, r) {
 		return
 	}
+	handleExportInner(w, r)
+}
+
+// 导出公共逻辑(店主后台 / agent 共用)
+func handleExportInner(w http.ResponseWriter, r *http.Request) {
 	files, _ := filepath.Glob("/var/lib/catcafe/*.json")
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
@@ -1489,8 +1538,41 @@ func handleAgentReply(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/agent/messages/delete {time, nick} — 删除不当留言(管理职责)
 func handleAgentMsgDelete(w http.ResponseWriter, r *http.Request) {
-	if !agentOK(r) {
-		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+	if !gateAgent(w, r) {
+		return
+	}
+	handleMessageDeleteInner(w, r, "agent")
+}
+
+// ---------- agent 全资源管理(与店主同权) ----------
+
+// POST /api/agent/files/upload — 上传插画/小说文件(multipart: type + file)
+func handleAgentUpload(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
+		return
+	}
+	handleUploadInner(w, r, "agent")
+}
+
+// POST /api/agent/files/delete {type, file} — 删除服务器文件
+func handleAgentDeleteFile(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
+		return
+	}
+	handleDeleteFileInner(w, r, "agent")
+}
+
+// POST /api/agent/wall/delete {img} — 撤下明信片(连图片文件)
+func handleAgentWallDelete(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
+		return
+	}
+	handleWallDeleteInner(w, r, "agent")
+}
+
+// POST /api/agent/urge/reset — 清空催更计数(可选择保留最近列表)
+func handleAgentUrgeReset(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
 		return
 	}
 	if r.Method != http.MethodPost {
@@ -1498,32 +1580,145 @@ func handleAgentMsgDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Time string `json:"time"`
-		Nick string `json:"nick"`
+		ClearAll bool `json:"clearAll"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, 400, map[string]string{"error": "请求格式不对"})
+	json.NewDecoder(r.Body).Decode(&req)
+	mu.Lock()
+	store.UrgeTotal = 0
+	if req.ClearAll {
+		store.Urges = []Urge{}
+	}
+	saveStore()
+	mu.Unlock()
+	log.Printf("agent 清空了催更计数")
+	writeJSON(w, 200, map[string]any{"status": "ok", "urges": store.UrgeTotal})
+}
+
+// POST /api/agent/comments/delete {file, nick, content, time} — 删除某作品的某条评论
+func handleAgentCommentDelete(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
 		return
 	}
-	mu.Lock()
-	found := false
-	for i, m := range store.Messages {
-		if m.Time == req.Time && m.Nick == req.Nick {
-			store.Messages = append(store.Messages[:i], store.Messages[i+1:]...)
-			found = true
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		File    string `json:"file"`
+		Nick    string `json:"nick"`
+		Content string `json:"content"`
+		Time    string `json:"time"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.File == "" {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	commentsMu.Lock()
+	defer commentsMu.Unlock()
+	list := comments[req.File]
+	idx := -1
+	for i, c := range list {
+		if c.Time == req.Time && c.Nick == req.Nick && c.Content == req.Content {
+			idx = i
 			break
 		}
 	}
-	if found {
-		saveStore()
-		log.Printf("agent 删除了留言: %s %s", req.Nick, req.Time)
-	}
-	mu.Unlock()
-	if !found {
-		writeJSON(w, 404, map[string]string{"error": "留言不存在"})
+	if idx < 0 {
+		writeJSON(w, 404, map[string]string{"error": "评论不存在"})
 		return
 	}
+	comments[req.File] = append(list[:idx], list[idx+1:]...)
+	saveComments()
+	log.Printf("agent 删除了作品 %s 的评论: %s", req.File, req.Nick)
 	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+// POST /api/agent/points/set {nick, points} — 调整某昵称积分(事件如捡鱼干)
+func handleAgentPointsSet(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Nick   string `json:"nick"`
+		Points int    `json:"points"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Nick == "" {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	nick := clean(req.Nick, maxNickLen)
+	if req.Points < -1000 || req.Points > 100000 {
+		writeJSON(w, 400, map[string]string{"error": "积分超出合理范围"})
+		return
+	}
+	pointsMu.Lock()
+	points[nick] += req.Points
+	if points[nick] < 0 {
+		points[nick] = 0
+	}
+	total := points[nick]
+	savePoints()
+	pointsMu.Unlock()
+	title, _ := titleFor(total)
+	log.Printf("agent 调整积分: %s %+d → %d", nick, req.Points, total)
+	writeJSON(w, 200, map[string]any{"nick": nick, "points": total, "title": title})
+}
+
+// GET /api/agent/subs — 订阅总览;POST {file, nick} — 代某昵称订阅/退订
+func handleAgentSubs(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		subsMu.Lock()
+		out := make(map[string][]string, len(subs))
+		for f, list := range subs {
+			out[f] = list
+		}
+		subsMu.Unlock()
+		writeJSON(w, 200, out)
+	case http.MethodPost:
+		handleSubscribe(w, r)
+	default:
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+	}
+}
+
+// GET /api/agent/export — 导出全部数据文件(zip)
+func handleAgentExport(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
+		return
+	}
+	handleExportInner(w, r)
+}
+
+// POST /api/agent/password {password} — 修改店主登录密码(写入 admin.hash)
+func handleAgentPassword(w http.ResponseWriter, r *http.Request) {
+	if !gateAgent(w, r) {
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.Password) < 6 {
+		writeJSON(w, 400, map[string]string{"error": "新密码至少6位"})
+		return
+	}
+	if err := os.WriteFile(passFile, []byte(hashPass(req.Password)), 0600); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "保存失败"})
+		return
+	}
+	log.Printf("agent 修改了店主密码")
+	writeJSON(w, 200, map[string]string{"status": "ok"})
 }
 
 // ---------- 全店养猪 ----------
@@ -2524,6 +2719,15 @@ func main() {
 	mux.HandleFunc("/api/agent/messages/post", handleAgentMsgPost)
 	mux.HandleFunc("/api/agent/messages/reply", handleAgentReply)
 	mux.HandleFunc("/api/agent/messages/delete", handleAgentMsgDelete)
+	mux.HandleFunc("/api/agent/files/upload", handleAgentUpload)
+	mux.HandleFunc("/api/agent/files/delete", handleAgentDeleteFile)
+	mux.HandleFunc("/api/agent/wall/delete", handleAgentWallDelete)
+	mux.HandleFunc("/api/agent/urge/reset", handleAgentUrgeReset)
+	mux.HandleFunc("/api/agent/comments/delete", handleAgentCommentDelete)
+	mux.HandleFunc("/api/agent/points/set", handleAgentPointsSet)
+	mux.HandleFunc("/api/agent/subs", handleAgentSubs)
+	mux.HandleFunc("/api/agent/export", handleAgentExport)
+	mux.HandleFunc("/api/agent/password", handleAgentPassword)
 	mux.HandleFunc("/api/gate/questions", handleGateQuestions)
 	mux.HandleFunc("/api/gate/verify", handleGateVerify)
 	mux.HandleFunc("/api/pig", handlePig)

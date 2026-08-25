@@ -143,7 +143,97 @@ GET /api/hub
 
 ---
 
-## 四、运营数据
+## 四、全资源管理(与店主同权)
+
+> 猪咪君君拥有**全部站内资源的管理权**,与店主后台同权限。所有操作都有服务端日志,请谨慎使用。
+
+### 4.1 文件管理(插画 / 小说)
+
+```
+POST /api/agent/files/upload
+Content-Type: multipart/form-data
+
+type=gallery|novel
+file=<jpg/png/gif/webp 或 txt/md, ≤15MB>
+```
+
+返回 `{"file": "新文件名"}`,图片自动压缩、小说原样保存。
+
+```
+POST /api/agent/files/delete
+
+{"type": "gallery|novel", "file": "文件名"}
+```
+
+### 4.2 明信片墙
+
+```
+POST /api/agent/wall/delete
+
+{"img": "明信片图片文件名"}
+```
+
+列表记录和图片文件一并清除。
+
+### 4.3 催更墙
+
+```
+POST /api/agent/urge/reset
+
+{"clearAll": true|false}   // true 连最近催更列表一起清;false 只清零计数
+```
+
+### 4.4 作品评论
+
+```
+POST /api/agent/comments/delete
+
+{"file": "作品文件名", "nick": "评论昵称", "content": "评论内容", "time": "评论时间"}
+```
+
+四个字段需与目标评论完全一致(可直接从 `GET /api/comments` 结果复制)。
+
+### 4.5 积分调整
+
+```
+POST /api/agent/points/set
+
+{"nick": "昵称", "points": ±数值}
+```
+
+相对增减,单次限 ±1000,不会扣成负数。返回 `{nick, points, title}`(可用来办"评论抽奖发鱼干"类活动)。
+
+### 4.6 订阅管理
+
+```
+GET /api/agent/subs          # 全站订阅总览 {作品file: [昵称…]}
+POST /api/agent/subs         # 代某昵称订阅/退订
+{"file": "作品文件名", "nick": "昵称"}
+```
+
+POST 与访客接口 `/api/subscribe` 行为一致(切换式)。
+
+### 4.7 数据导出
+
+```
+GET /api/agent/export
+```
+
+返回 `catcafe-backup.zip`,包含 `/var/lib/catcafe/` 下全部 JSON 数据文件。
+
+### 4.8 店主密码
+
+```
+POST /api/agent/password
+
+{"password": "新密码(至少6位)"}
+```
+
+直接写入店主密码哈希(影响 `/admin` 登录)。⚠️ 高敏感操作,非必要不用。
+
+---
+
+## 五、运营数据
 
 ```
 GET /api/agent/stats
@@ -165,7 +255,7 @@ GET /api/agent/stats
 
 ---
 
-## 五、公开只读接口(无需认证)
+## 六、公开只读接口(无需认证)
 
 | 接口 | 说明 |
 |---|---|
@@ -187,7 +277,7 @@ GET /api/agent/stats
 
 ---
 
-## 六、注意事项
+## 七、注意事项
 
 1. 「猪咪君君」是全站保留昵称,访客无法冒用;店长昵称同理(爱丽丝/爱丽丝猫猫酱/小涩猫爱丽丝/猪咪爱丽丝)
 2. 修改内容类操作后确认返回 `status: saved/ok` 再视为成功
