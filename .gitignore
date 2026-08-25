@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .idea/
+deploy/
+*.tar.gz
+server/catcafe-api
