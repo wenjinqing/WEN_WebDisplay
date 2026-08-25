@@ -20,6 +20,7 @@ const tagColor = {
         <div v-for="(n, i) in site.notices" :key="i" class="notice">
           <div class="meta">
             <span class="tag" :style="{ background: tagColor[n.tag] || '#f9718f' }">{{ n.tag }}</span>
+            <span v-if="n.by === '猪咪君君'" class="by-tag">🐷 猪咪君君</span>
             <time>{{ n.date }}</time>
           </div>
           <p>{{ n.text }}</p>
@@ -68,6 +69,14 @@ const tagColor = {
   color: #fff;
   border-radius: 999px;
   padding: 2px 12px;
+}
+
+.by-tag {
+  font-size: 0.72rem;
+  color: #fff;
+  background: #9b7ede;
+  border-radius: 999px;
+  padding: 2px 10px;
 }
 
 time {

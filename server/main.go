@@ -75,7 +75,7 @@ type Message struct {
 	Content string `json:"content"`
 	Time    string `json:"time"`
 	Reply   string `json:"reply,omitempty"`   // 回复内容
-	ReplyBy string `json:"replyBy,omitempty"` // 回复者:空=店长,猪咪君君=饲养员agent
+	ReplyBy string `json:"replyBy,omitempty"` // 回复者:空=店长,猪咪君君=agent
 	By      string `json:"by,omitempty"`      // 发帖者:空=访客,agent=猪咪君君
 }
 
@@ -260,7 +260,7 @@ var reservedNicks = map[string]bool{
 	"爱丽丝猫猫酱": true,
 	"小涩猫爱丽丝": true,
 	"猪咪爱丽丝":  true,
-	"猪咪君君":   true, // 饲养员 agent 专用
+	"猪咪君君":   true, // agent 专用
 }
 
 func isReserved(nick string) bool {
@@ -1460,6 +1460,25 @@ func handleAgentContent(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// 署名:agent 新增或改动过的公告,自动带上猪咪君君标签(未动过的保持原样)
+		if arr, ok := check["notices"].([]any); ok {
+			oldSet := map[string]bool{}
+			if oldArr, ok2 := oldC["notices"].([]any); ok2 {
+				for _, it := range oldArr {
+					if n, ok3 := it.(map[string]any); ok3 {
+						oldSet[fmt.Sprintf("%v|%v|%v", n["date"], n["tag"], n["text"])] = true
+					}
+				}
+			}
+			for _, it := range arr {
+				if n, ok2 := it.(map[string]any); ok2 {
+					key := fmt.Sprintf("%v|%v|%v", n["date"], n["tag"], n["text"])
+					if !oldSet[key] {
+						n["by"] = "猪咪君君"
+					}
+				}
+			}
+		}
 		pretty, _ := json.MarshalIndent(check, "", "  ")
 		tmp := contentFile + ".tmp"
 		if err := os.WriteFile(tmp, pretty, 0644); err != nil {
@@ -1496,7 +1515,7 @@ func handleAdminContentFull(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-// POST /api/agent/messages/reply {time, nick, reply} — 以"猪咪君君(饲养员)"身份回复留言
+// POST /api/agent/messages/reply {time, nick, reply} — 以"猪咪君君"身份回复留言
 func handleAgentReply(w http.ResponseWriter, r *http.Request) {
 	if !agentOK(r) {
 		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
@@ -2101,7 +2120,7 @@ type HubPost struct {
 	Img      string       `json:"img,omitempty"`
 	Text     string       `json:"text,omitempty"`
 	Time     string       `json:"time"`
-	By       string       `json:"by"`             // agent=猪咪君君(饲养员)
+	By       string       `json:"by"`             // agent=猪咪君君
 	Nick     string       `json:"nick,omitempty"` // 发帖昵称(访客帖)
 	Likes    int          `json:"likes"`
 	Comments []HubComment `json:"comments,omitempty"`

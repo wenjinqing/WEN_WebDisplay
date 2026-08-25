@@ -44,7 +44,7 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
           <div class="msg-head">
             <b>
               {{ m.nick }}
-              <span v-if="m.by === 'agent'" class="keeper-tag">🐷 饲养员</span>
+              <span v-if="m.by === 'agent'" class="keeper-tag">🐷 猪咪君君</span>
             </b>
             <time>{{ m.time }}</time>
           </div>
@@ -56,7 +56,7 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
           </div>
           <div v-if="m.reply" class="reply" :class="{ keeper: m.replyBy === '猪咪君君' }">
             <span class="owner-badge font-cute">
-              {{ m.replyBy === '猪咪君君' ? '🐷 猪咪饲养员 · 猪咪君君' : '🐾 店长回复' }}
+              {{ m.replyBy === '猪咪君君' ? '🐷 猪咪君君' : '🐾 店长回复' }}
             </span>
             <p>{{ m.reply }}</p>
           </div>
@@ -187,7 +187,7 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
   word-break: break-word;
 }
 
-/* 饲养员回复:淡紫区分店长粉 */
+/* 猪咪君君回复:淡紫区分店长粉 */
 .reply.keeper {
   background: #f0eafd;
   border-left-color: #9b7ede;
