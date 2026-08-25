@@ -1894,24 +1894,45 @@ func detectNovelUpdates(oldC, newC map[string]any) []string {
 
 // ---------- 猪咪聚集地(图文墙) ----------
 
-type HubPost struct {
-	ID   string `json:"id"`
-	Type string `json:"type"` // image | text
-	Img  string `json:"img,omitempty"`
-	Text string `json:"text,omitempty"`
-	Time string `json:"time"`
-	By   string `json:"by"` // agent=猪咪君君(饲养员)
+type HubComment struct {
+	Nick    string `json:"nick"`
+	Content string `json:"content"`
+	Time    string `json:"time"`
 }
 
+type HubPost struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"` // image | text
+	Img      string       `json:"img,omitempty"`
+	Text     string       `json:"text,omitempty"`
+	Time     string       `json:"time"`
+	By       string       `json:"by"`             // agent=猪咪君君(饲养员)
+	Nick     string       `json:"nick,omitempty"` // 发帖昵称(访客帖)
+	Likes    int          `json:"likes"`
+	Comments []HubComment `json:"comments,omitempty"`
+}
+
+const hubKeysFile = "/var/lib/catcafe/hubkeys.json" // 帖子ID → 编辑密钥
+
 var (
-	hubMu sync.Mutex
-	hub   []HubPost
+	hubMu    sync.Mutex
+	hub      []HubPost
+	hubKeys  = map[string]string{}    // 帖子ID → 编辑密钥(访客发帖时下发,重启不丢)
+	hubLiked = map[string]bool{}      // 点赞记录:"ip|id"(重启后清零,可接受)
+	lastHub  = map[string]time.Time{} // 聚集地发帖限流(30秒/次)
 )
 
 func loadHub() {
 	data, err := os.ReadFile(hubFile)
 	if err == nil {
 		json.Unmarshal(data, &hub)
+	}
+	data, err = os.ReadFile(hubKeysFile)
+	if err == nil {
+		json.Unmarshal(data, &hubKeys)
+	}
+	if hubKeys == nil {
+		hubKeys = map[string]string{}
 	}
 }
 
@@ -1923,14 +1944,364 @@ func saveHub() {
 	}
 }
 
+func saveHubKeys() {
+	data, _ := json.MarshalIndent(hubKeys, "", "  ")
+	tmp := hubKeysFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err == nil {
+		os.Rename(tmp, hubKeysFile)
+	}
+}
+
+func randomKey() string {
+	b := make([]byte, 6)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// 安全删除帖子的图片文件(只删聚集地目录里的名字,防路径穿越)
+func removeHubImg(p HubPost) {
+	if p.Img == "" || strings.Contains(p.Img, "/") || strings.Contains(p.Img, "..") {
+		return
+	}
+	os.Remove(filepath.Join(hubDir, p.Img))
+}
+
 // GET /api/hub — 公开:聚集地内容列表
+// POST /api/hub — 访客发帖(文字,或带一张图)
 func handleHub(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		hubMu.Lock()
+		defer hubMu.Unlock()
+		if hub == nil {
+			hub = []HubPost{}
+		}
+		writeJSON(w, 200, hub)
+	case http.MethodPost:
+		handleHubPost(w, r)
+	default:
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+	}
+}
+
+// POST /api/hub — 访客发帖:纯文字,或带一张图(文字变图说)
+func handleHubPost(w http.ResponseWriter, r *http.Request) {
+	ip := clientIP(r)
+	rateMu.Lock()
+	if t, ok := lastHub[ip]; ok && time.Since(t) < 30*time.Second {
+		rateMu.Unlock()
+		writeJSON(w, 429, map[string]string{"error": "发得太快啦,半分钟后再来喵~"})
+		return
+	}
+	rateMu.Unlock()
+
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+	if err := r.ParseMultipartForm(10 << 20); err != nil && err != http.ErrNotMultipart {
+		writeJSON(w, 400, map[string]string{"error": "文件太大(上限10MB)"})
+		return
+	}
+
+	nick := clean(r.FormValue("nick"), maxNickLen)
+	text := clean(r.FormValue("text"), 500)
+	if hasBanned(nick) || hasBanned(text) {
+		writeJSON(w, 400, map[string]string{"error": "内容有点不合适,换种说法喵~"})
+		return
+	}
+	if isReserved(nick) {
+		writeJSON(w, 400, map[string]string{"error": "这个名字属于店长,换一个喵~"})
+		return
+	}
+	if nick == "" {
+		nick = "匿名猪咪"
+	}
+
+	post := HubPost{
+		ID:   fmt.Sprintf("%d", time.Now().UnixNano()),
+		Time: time.Now().Format("2006-01-02 15:04"),
+		Nick: nick,
+	}
+
+	// 带图 → 图片帖(文字是图说);否则文字帖
+	f, header, ferr := r.FormFile("file")
+	if ferr == nil {
+		defer f.Close()
+		ext := strings.ToLower(filepath.Ext(header.Filename))
+		if !allowExt["gallery"][ext] {
+			writeJSON(w, 400, map[string]string{"error": "只支持 jpg/png/gif/webp 图片"})
+			return
+		}
+		os.MkdirAll(hubDir, 0755)
+		name := fmt.Sprintf("%d-%s", time.Now().Unix(), safeName(header.Filename))
+		data, _ := io.ReadAll(f)
+		if err := saveImageCompressed(data, ext, filepath.Join(hubDir, name)); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "图片处理失败,换一张试试"})
+			return
+		}
+		post.Type = "image"
+		post.Img = name
+		post.Text = clean(text, 100) // 图说
+	} else {
+		if text == "" {
+			writeJSON(w, 400, map[string]string{"error": "内容不能为空喵"})
+			return
+		}
+		post.Type = "text"
+		post.Text = text
+	}
+
+	key := randomKey()
+	hubMu.Lock()
+	hub = append([]HubPost{post}, hub...)
+	if len(hub) > 200 {
+		for _, old := range hub[200:] { // 挤掉的老帖,图片和密钥一并清理
+			removeHubImg(old)
+			delete(hubKeys, old.ID)
+		}
+		hub = hub[:200]
+	}
+	hubKeys[post.ID] = key
+	saveHub()
+	saveHubKeys()
+	hubMu.Unlock()
+
+	rateMu.Lock()
+	lastHub[ip] = time.Now()
+	rateMu.Unlock()
+
+	pts := 5
+	if post.Type == "image" {
+		pts = 10
+	}
+	addPoints(nick, pts)
+	log.Printf("猪咪在聚集地发帖: %s (%s)", nick, post.Type)
+	writeJSON(w, 200, map[string]any{"post": post, "key": key})
+}
+
+// POST /api/hub/like {id} — 给帖子拍爪(同一 IP 对同一帖只能点一次)
+func handleHubLike(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == "" {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	key := "hub|" + clientIP(r) + "|" + req.ID
+	rateMu.Lock()
+	if hubLiked[key] {
+		rateMu.Unlock()
+		writeJSON(w, 429, map[string]string{"error": "这条你已经拍过爪啦"})
+		return
+	}
+	rateMu.Unlock()
+
+	hubMu.Lock()
+	found := false
+	likes := 0
+	for i := range hub {
+		if hub[i].ID == req.ID {
+			hub[i].Likes++
+			likes = hub[i].Likes
+			found = true
+			break
+		}
+	}
+	if found {
+		saveHub()
+	}
+	hubMu.Unlock()
+	if !found {
+		writeJSON(w, 404, map[string]string{"error": "帖子不存在"})
+		return
+	}
+	rateMu.Lock()
+	hubLiked[key] = true
+	rateMu.Unlock()
+	bumpDaily("likes")
+	writeJSON(w, 200, map[string]int{"likes": likes})
+}
+
+// POST /api/hub/comment {id, nick, content} — 给帖子评论
+func handleHubComment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID      string `json:"id"`
+		Nick    string `json:"nick"`
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == "" {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	nick := clean(req.Nick, maxNickLen)
+	content := clean(req.Content, maxTextLen)
+	if isReserved(nick) {
+		writeJSON(w, 400, map[string]string{"error": "这个名字属于店长,换一个喵~"})
+		return
+	}
+	if hasBanned(nick) || hasBanned(content) {
+		writeJSON(w, 400, map[string]string{"error": "内容有点不合适,换种说法喵~"})
+		return
+	}
+	if content == "" {
+		writeJSON(w, 400, map[string]string{"error": "评论不能为空喵"})
+		return
+	}
+	if nick == "" {
+		nick = "匿名猪咪"
+	}
+	if rateLimited(r) {
+		writeJSON(w, 429, map[string]string{"error": "发得太快啦,歇一会儿"})
+		return
+	}
+	cm := HubComment{Nick: nick, Content: content, Time: time.Now().Format("2006-01-02 15:04")}
+	hubMu.Lock()
+	found := false
+	for i := range hub {
+		if hub[i].ID == req.ID {
+			hub[i].Comments = append([]HubComment{cm}, hub[i].Comments...)
+			if len(hub[i].Comments) > 100 {
+				hub[i].Comments = hub[i].Comments[:100]
+			}
+			found = true
+			break
+		}
+	}
+	if found {
+		saveHub()
+	}
+	hubMu.Unlock()
+	if !found {
+		writeJSON(w, 404, map[string]string{"error": "帖子不存在"})
+		return
+	}
+	addPoints(nick, 3) // 评论 +3 鱼干
+	writeJSON(w, 200, cm)
+}
+
+// 编辑密钥校验:发帖时下发给访客,存在本地,用来改/删自己的帖子
+func hubOwnsKey(id, key string) bool {
+	return key != "" && hubKeys[id] == key
+}
+
+// POST /api/hub/edit {id, key, text} — 访客修改自己的帖子
+func handleHubEdit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID   string `json:"id"`
+		Key  string `json:"key"`
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == "" {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	text := clean(req.Text, 500)
+	if text == "" {
+		writeJSON(w, 400, map[string]string{"error": "内容不能为空喵"})
+		return
+	}
+	if hasBanned(text) {
+		writeJSON(w, 400, map[string]string{"error": "内容有点不合适,换种说法喵~"})
+		return
+	}
 	hubMu.Lock()
 	defer hubMu.Unlock()
-	if hub == nil {
-		hub = []HubPost{}
+	if !hubOwnsKey(req.ID, req.Key) {
+		writeJSON(w, 403, map[string]string{"error": "密钥不对,只能改自己的帖子喵~"})
+		return
 	}
-	writeJSON(w, 200, hub)
+	for i := range hub {
+		if hub[i].ID == req.ID {
+			if hub[i].Type == "image" {
+				text = clean(text, 100) // 图说保持100字上限
+			}
+			hub[i].Text = text
+			saveHub()
+			writeJSON(w, 200, map[string]string{"status": "ok"})
+			return
+		}
+	}
+	writeJSON(w, 404, map[string]string{"error": "帖子不存在"})
+}
+
+// POST /api/hub/delete {id, key} — 访客删除自己的帖子
+func handleHubDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID  string `json:"id"`
+		Key string `json:"key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == "" {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	hubMu.Lock()
+	defer hubMu.Unlock()
+	if !hubOwnsKey(req.ID, req.Key) {
+		writeJSON(w, 403, map[string]string{"error": "密钥不对,只能删自己的帖子喵~"})
+		return
+	}
+	for i, p := range hub {
+		if p.ID == req.ID {
+			removeHubImg(p)
+			hub = append(hub[:i], hub[i+1:]...)
+			delete(hubKeys, p.ID)
+			saveHub()
+			saveHubKeys()
+			log.Printf("猪咪删除了自己的聚集地帖子: %s", p.ID)
+			writeJSON(w, 200, map[string]string{"status": "ok"})
+			return
+		}
+	}
+	writeJSON(w, 404, map[string]string{"error": "帖子不存在"})
+}
+
+// POST /api/agent/hub/delete {id} — agent 删除任意聚集地帖子(连图片文件一起清)
+func handleAgentHubDelete(w http.ResponseWriter, r *http.Request) {
+	if !agentOK(r) {
+		writeJSON(w, 401, map[string]string{"error": "invalid api key"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == "" {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	hubMu.Lock()
+	defer hubMu.Unlock()
+	for i, p := range hub {
+		if p.ID == req.ID {
+			removeHubImg(p)
+			hub = append(hub[:i], hub[i+1:]...)
+			delete(hubKeys, p.ID)
+			saveHub()
+			saveHubKeys()
+			log.Printf("agent 删除了聚集地帖子: %s", p.ID)
+			writeJSON(w, 200, map[string]string{"status": "ok"})
+			return
+		}
+	}
+	writeJSON(w, 404, map[string]string{"error": "帖子不存在"})
 }
 
 // POST /api/agent/hub/text {text} — agent 发文字
@@ -2143,8 +2514,13 @@ func main() {
 	mux.HandleFunc("/api/agent/stats", handleAgentStats)
 	mux.HandleFunc("/api/admin/content-full", handleAdminContentFull)
 	mux.HandleFunc("/api/hub", handleHub)
+	mux.HandleFunc("/api/hub/like", handleHubLike)
+	mux.HandleFunc("/api/hub/comment", handleHubComment)
+	mux.HandleFunc("/api/hub/edit", handleHubEdit)
+	mux.HandleFunc("/api/hub/delete", handleHubDelete)
 	mux.HandleFunc("/api/agent/hub/text", handleAgentHubText)
 	mux.HandleFunc("/api/agent/hub/image", handleAgentHubImage)
+	mux.HandleFunc("/api/agent/hub/delete", handleAgentHubDelete)
 	mux.HandleFunc("/api/agent/messages/post", handleAgentMsgPost)
 	mux.HandleFunc("/api/agent/messages/reply", handleAgentReply)
 	mux.HandleFunc("/api/agent/messages/delete", handleAgentMsgDelete)
