@@ -40,7 +40,7 @@ async function delMsg(m) {
   if (res.status === 401) return logout()
   if (res.ok) {
     msgs.value = msgs.value.filter((x) => !(x.time === m.time && x.nick === m.nick))
-    showToast('留言已删除 ✅')
+    showToast('留言已删除')
   }
 }
 
@@ -56,7 +56,7 @@ async function replyMsg(m) {
   if (res.ok) {
     m.reply = text
     replyText[m.time] = ''
-    showToast('回复成功 ✅')
+    showToast('回复成功')
   }
 }
 
@@ -74,7 +74,7 @@ async function delWall(img) {
   if (res.status === 401) return logout()
   if (res.ok) {
     wallPosts.value = wallPosts.value.filter((p) => p.img !== img)
-    showToast('已撤下 ✅')
+    showToast('已撤下')
   }
 }
 
@@ -90,7 +90,7 @@ async function addChapter(n) {
     const fname = await uploadFile(newChapter.file, 'novel')
     n.chapters = [...(n.chapters || []), { title: newChapter.title, file: fname }]
     Object.assign(newChapter, { title: '', file: null })
-    showToast('章节已上传,记得点保存 ✅')
+    showToast('章节已上传,记得点保存')
   } catch (e) {
     showToast(e.message)
   }
@@ -169,7 +169,7 @@ async function save() {
     if (res.status === 401) return logout()
     if (res.ok) {
       contentSnapshot = await (await fetch('/api/admin/content-full', { headers: authHeaders() })).text() // 同步新快照
-      showToast('已保存!前台刷新即可看到 ✅')
+      showToast('已保存!前台刷新即可看到')
     } else {
       showToast('保存失败')
     }
@@ -207,7 +207,7 @@ async function addNovel() {
     const fname = await uploadFile(newNovel.file, 'novel')
     c.novels = [...(c.novels || []), { title: newNovel.title, desc: newNovel.desc, cup: newNovel.cup, cat: newNovel.cat, file: fname }]
     Object.assign(newNovel, { title: '', desc: '', file: '', cup: '中杯 · 微糖', cat: '连载中' })
-    showToast('小说文件已上传,记得点保存 ✅')
+    showToast('小说文件已上传,记得点保存')
   } catch (e) {
     showToast(e.message)
   }
@@ -221,7 +221,7 @@ async function addArt() {
     c.gallery = (c.gallery || []).filter((g) => g.img)
     c.gallery.push({ img: fname, title: newArt.title, note: newArt.note })
     Object.assign(newArt, { title: '', note: '', file: null })
-    showToast('插画已上传,记得点保存 ✅')
+    showToast('插画已上传,记得点保存')
   } catch (e) {
     showToast(e.message)
   }
@@ -237,7 +237,7 @@ async function changePass() {
   const data = await res.json()
   if (res.ok) {
     oldPass.value = newPass.value = ''
-    showToast('密码已更新 ✅')
+    showToast('密码已更新')
   } else {
     showToast(data.error || '修改失败')
   }
@@ -254,7 +254,7 @@ async function exportData() {
     a.download = `catcafe-backup-${new Date().toISOString().slice(0, 10)}.zip`
     a.click()
     URL.revokeObjectURL(a.href)
-    showToast('备份包已开始下载 ✅')
+    showToast('备份包已开始下载')
   } catch {
     showToast('导出失败,稍后再试')
   }
@@ -270,7 +270,7 @@ function showToast(text) {
   <div class="admin">
     <!-- 登录页 -->
     <div v-if="!token" class="login-card">
-      <h1 class="font-cute">🐾 店主通道</h1>
+      <h1 class="font-cute">店主通道</h1>
       <p class="sub">爱丽丝猫猫酱专属,猪咪请回前台~</p>
       <input
         v-model="password"
@@ -288,7 +288,7 @@ function showToast(text) {
     <!-- 后台 -->
     <div v-else-if="loaded" class="panel">
       <header class="panel-head">
-        <h1 class="font-cute">🐾 店主后台</h1>
+        <h1 class="font-cute">店主后台</h1>
         <div>
           <a href="/" target="_blank" class="back">看前台 ↗</a>
           <button class="btn btn-ghost small" @click="logout">退出</button>
@@ -314,10 +314,10 @@ function showToast(text) {
         <label>首页标语 <input v-model="c.slogan" /></label>
         <label>店主状态(显示在首页)
           <select v-model="c.authorStatus">
-            <option>赶稿中 ✍️</option>
-            <option>摸鱼中 🐟</option>
-            <option>冬眠中 💤</option>
-            <option>爆更中 🔥</option>
+            <option>赶稿中</option>
+            <option>摸鱼中</option>
+            <option>冬眠中</option>
+            <option>爆更中</option>
           </select>
         </label>
         <label>粉丝群号 <input v-model="c.fanClub.qq" /></label>
@@ -426,7 +426,7 @@ function showToast(text) {
           <div class="msg-main">
             <div class="msg-meta"><b>{{ m.nick }}</b><time>{{ m.time }}</time></div>
             <p>{{ m.content }}</p>
-            <p v-if="m.reply" class="has-reply">🐾 已回复:{{ m.reply }}</p>
+            <p v-if="m.reply" class="has-reply">已回复:{{ m.reply }}</p>
             <div class="reply-row">
               <input v-model="replyText[m.time]" :placeholder="m.reply ? '修改回复…' : '回复这条留言…'" />
               <button class="btn btn-primary small" @click="replyMsg(m)">回复</button>
@@ -443,13 +443,13 @@ function showToast(text) {
         <button class="btn btn-primary" @click="changePass">更新密码</button>
         <div class="export-box">
           <p class="hint-text">数据备份:留言、明信片、积分、公告等全部内容打包下载,建议每月存一份</p>
-          <button class="btn btn-ghost" @click="exportData">📦 导出数据备份</button>
+          <button class="btn btn-ghost" @click="exportData">导出数据备份</button>
         </div>
       </section>
 
       <footer v-if="tab !== 'account' && tab !== 'wall' && tab !== 'msgs'" class="panel-foot">
         <button class="btn btn-primary" :disabled="saving" @click="save">
-          {{ saving ? '保存中…' : '💾 保存全部修改' }}
+          {{ saving ? '保存中…' : '保存全部修改' }}
         </button>
       </footer>
 

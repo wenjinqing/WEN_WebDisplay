@@ -44,7 +44,7 @@ async function load() {
 }
 
 async function like(p) {
-  if (liked.value.has(p.img)) return showMsg('这张你已经拍过爪啦 🐾', false)
+  if (liked.value.has(p.img)) return showMsg('这张你已经拍过爪啦', false)
   try {
     const res = await fetch('/api/wall/like', {
       method: 'POST',
@@ -80,7 +80,7 @@ async function send() {
       nick.value = note.value = ''
       file.value = null
       if (fileInput.value) fileInput.value.value = ''
-      showMsg('明信片寄出啦,已贴到墙上 💌', true)
+      showMsg('明信片寄出啦,已贴到墙上', true)
     } else {
       showMsg(data.error || '寄件失败,稍后再试', false)
     }
@@ -111,7 +111,7 @@ function showMsg(text, ok) {
           <div class="send-row">
             <input ref="fileInput" type="file" accept="image/*" @change="file = $event.target.files[0]" />
             <button class="btn btn-primary" :disabled="!file || sending" @click="send">
-              {{ sending ? '寄件中…' : '💌 寄出明信片' }}
+              {{ sending ? '寄件中…' : '寄出明信片' }}
             </button>
           </div>
           <p v-if="msg" class="send-msg" :class="{ ok: msgOk }">{{ msg }}</p>
@@ -131,7 +131,7 @@ function showMsg(text, ok) {
               @contextmenu.prevent
             />
             <span class="zoom-hint">🔍</span>
-            <span v-if="i === 0 && p.likes > 0" class="crown font-cute">👑 人气王</span>
+            <span v-if="i === 0 && p.likes > 0" class="crown font-cute">人气王</span>
           </div>
           <figcaption>
             <p v-if="p.note" class="note">{{ p.note }}</p>

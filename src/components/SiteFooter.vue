@@ -37,12 +37,12 @@ onUnmounted(() => clearInterval(timer))
       <PawPrint :size="28" color="#ffc2d4" />
       <p class="font-cute">{{ site.title }}</p>
       <p class="note">
-        本站为「{{ site.author }}」的非官方粉丝后援页 · 作品版权归原作者所有 · 用爱发电 💗
+        本站为「{{ site.author }}」的非官方粉丝后援页 · 作品版权归原作者所有 · 用爱发电
       </p>
       <p class="note">
         插画素材:<a class="credit" href="https://www.irasutoya.com/" target="_blank" rel="noopener">いらすとや</a>(免费授权使用)
       </p>
-      <p v-if="visits" class="note">☕ 已有 {{ visits }} 只猪咪来喝过咖啡</p>
+      <p v-if="visits" class="note">已有 {{ visits }} 只猪咪来喝过咖啡</p>
       <p v-if="online" class="note online-note">
         <span class="dot" />现在有 {{ online }} 只猪咪在店里
       </p>

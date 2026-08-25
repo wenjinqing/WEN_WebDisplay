@@ -54,7 +54,7 @@ async function submit() {
     </label>
     <div class="form-foot">
       <span v-if="error" class="err">{{ error }}</span>
-      <span v-else-if="done" class="ok">已贴到墙上啦 ✅ 去「留言墙」看看</span>
+      <span v-else-if="done" class="ok">已贴到墙上啦,去「留言墙」看看</span>
       <span v-else class="count">{{ content.length }}/300</span>
       <button type="submit" class="btn btn-primary" :disabled="sending || !content.trim()">
         {{ sending ? '投递中…' : '贴到墙上' }}

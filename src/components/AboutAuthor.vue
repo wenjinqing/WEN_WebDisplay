@@ -16,7 +16,7 @@ import { site } from '../data.js'
         <div class="bio">
           <p v-for="(p, i) in site.aboutAuthor" :key="i">{{ p }}</p>
           <a href="/go/pixiv.html" target="_blank" rel="noopener" class="btn btn-primary">
-            🎨 去 P 站看她的主页 ↗
+            去 P 站看她的主页 ↗
           </a>
         </div>
       </div>

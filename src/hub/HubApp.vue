@@ -188,7 +188,7 @@ function closeZoom() {
       ></textarea>
       <div class="composer-foot">
         <span class="preview" v-if="postImg">{{ postImg.name }}</span>
-        <button class="send" :disabled="posting" @click="submit">{{ posting ? '投喂中…' : '投喂 🐾' }}</button>
+        <button class="send" :disabled="posting" @click="submit">{{ posting ? '投喂中…' : '投喂' }}</button>
       </div>
     </section>
 
@@ -197,7 +197,7 @@ function closeZoom() {
 
       <article v-for="p in posts" :key="p.id" class="post" :class="p.type">
         <div class="post-head">
-          <span v-if="p.by === 'agent'" class="keeper-badge font-cute">🐷 猪咪君君</span>
+          <span v-if="p.by === 'agent'" class="keeper-badge font-cute">猪咪君君</span>
           <span v-else class="poster">{{ p.nick || '匿名猪咪' }}</span>
           <span class="head-ops" v-if="myKeys[p.id]">
             <button v-if="editing !== p.id" class="mini" @click="startEdit(p)">改</button>

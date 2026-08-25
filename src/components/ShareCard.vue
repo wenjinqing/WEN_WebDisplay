@@ -180,11 +180,11 @@ function loadImg(src) {
       </div>
 
       <p class="url">{{ url }}</p>
-      <div class="divider">🐾 · 🐾 · 🐾</div>
+      <div class="divider">· · ·</div>
       <p class="hint">「{{ site.author }}」粉丝后援会 · 用爱发电</p>
 
       <button class="btn btn-primary save-btn" :disabled="saving" @click="saveImage">
-        {{ saving ? '绘制中…' : '💾 保存分享卡图片' }}
+        {{ saving ? '绘制中…' : '保存分享卡图片' }}
       </button>
     </div>
   </div>

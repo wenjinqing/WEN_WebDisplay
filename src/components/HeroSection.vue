@@ -69,8 +69,8 @@ async function petCat() {
     <div class="container hero-inner">
       <div class="hero-text">
         <div class="badges">
-          <span class="clay-chip font-cute">☕ 营业中 · OPEN</span>
-          <span class="clay-chip alt font-cute">店主现在:{{ site.authorStatus || '赶稿中 ✍️' }}</span>
+          <span class="clay-chip font-cute">营业中 · OPEN</span>
+          <span class="clay-chip alt font-cute">店主现在:{{ site.authorStatus || '赶稿中' }}</span>
         </div>
 
         <h1 class="font-cute title">
@@ -83,7 +83,7 @@ async function petCat() {
           这里是 <b>{{ site.author }}</b> 的非官方粉丝后援会
         </p>
         <div class="actions">
-          <a href="#novels" class="btn-clay primary">📖 去看小说菜单</a>
+          <a href="#novels" class="btn-clay primary">去看小说菜单</a>
           <a href="/go/pixiv.html" target="_blank" rel="noopener" class="btn-clay ghost">
             作者主页 ↗
           </a>
@@ -101,7 +101,7 @@ async function petCat() {
           <CatFace :size="220" class="cat" />
         </div>
         <PigmiFace :size="110" class="pigmi" />
-        <p class="pet-count">🫳 猫猫已被撸 {{ pets }} 次,你也来一下?</p>
+        <p class="pet-count">猫猫已被撸 {{ pets }} 次,你也来一下?</p>
       </div>
     </div>
   </section>

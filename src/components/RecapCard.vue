@@ -84,10 +84,10 @@ onMounted(async () => {
         <p v-else class="empty">还没有开账,等你来第一单~</p>
         <div class="rsep" />
         <div v-if="d.topPost" class="rline hi">
-          <span>👑 人气明信片</span><b>{{ d.topPost.nick }} · {{ d.topPost.likes }} 赞</b>
+          <span>人气明信片</span><b>{{ d.topPost.nick }} · {{ d.topPost.likes }} 赞</b>
         </div>
         <div v-if="d.topPigmi" class="rline hi">
-          <span>🐟 鱼干首富</span><b>{{ d.topPigmi.nick }} · {{ d.topPigmi.points }}</b>
+          <span>鱼干首富</span><b>{{ d.topPigmi.nick }} · {{ d.topPigmi.points }}</b>
         </div>
         <div class="rfoot">—— 今日营业中,欢迎常来 ——</div>
       </div>

@@ -68,7 +68,7 @@ function draw() {
 
 <template>
   <div class="fortune hd-card-s" v-reveal>
-    <h3 class="font-cute">🥠 今日猪咪运势</h3>
+    <h3 class="font-cute">今日猪咪运势</h3>
     <p class="tip">每天一签,全群的猪咪共享同一份天意</p>
 
     <button class="tube" :class="{ shaking }" :disabled="shaking" @click="draw">

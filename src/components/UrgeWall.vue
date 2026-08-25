@@ -31,7 +31,7 @@ async function urge() {
     if (res.ok) {
       total.value = data.total
       recent.value = [data.urge, ...recent.value].slice(0, 20)
-      showToast('催更成功!猫猫酱收到啦 🐾')
+      showToast('催更成功!猫猫酱收到啦')
     } else {
       showToast(data.error || '催更失败,稍后再试')
     }

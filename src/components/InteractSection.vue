@@ -8,9 +8,9 @@ import SectionTitle from './SectionTitle.vue'
 const tab = ref('wall') // wall 留言墙 | write 写留言 | urge 催更墙
 
 const tabs = [
-  { key: 'wall', label: '💬 留言墙' },
-  { key: 'write', label: '✍️ 写留言' },
-  { key: 'urge', label: '🐾 催更墙' },
+  { key: 'wall', label: '留言墙' },
+  { key: 'write', label: '写留言' },
+  { key: 'urge', label: '催更墙' },
 ]
 </script>
 

@@ -57,8 +57,8 @@ async function verify() {
 
           <!-- 已解锁:显示群号 + 聚集地入口 -->
           <template v-if="unlocked">
-            <p class="qq font-cute">🐾 {{ unlocked }}</p>
-            <a href="/hub" class="btn btn-primary hub-link">🏠 进入猪咪聚集地 →</a>
+            <p class="qq font-cute">{{ unlocked }}</p>
+            <a href="/hub" class="btn btn-primary hub-link">进入猪咪聚集地 →</a>
           </template>
 
           <!-- 未解锁:答题验证 -->

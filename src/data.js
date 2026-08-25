@@ -10,7 +10,7 @@ export const site = reactive({
   author: '爱丽丝猫猫酱',
   authorPixiv: 'https://www.pixiv.net/users/16689973',
   slogan: '百合小说作家长期营业中,猪咪们里边请~',
-  authorStatus: '赶稿中 ✍️',
+  authorStatus: '赶稿中',
   aboutAuthor: [
     '爱丽丝猫猫酱,一位专注于百合题材的轻小说作者。',
     '笔下是女孩子之间酸酸甜甜、偶尔让人脸红心跳的故事。文字软软的,后劲足足的。',

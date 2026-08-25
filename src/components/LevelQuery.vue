@@ -41,7 +41,7 @@ async function query() {
 
 <template>
   <div class="level-card">
-    <h4 class="font-cute">🐟 我的猪咪头衔</h4>
+    <h4 class="font-cute">我的猪咪头衔</h4>
     <p class="tip">留言+5 · 评论+5 · 寄明信片+10 · 催更+2(填昵称才累计哦)</p>
     <div class="query-row">
       <input v-model="nick" maxlength="20" placeholder="输入你常用的昵称" @keyup.enter="query" />

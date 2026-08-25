@@ -60,7 +60,7 @@ async function act(action) {
       pig.value = { ...pig.value, ...data }
       if (data.evolved) {
         evolved.value = data.evolved
-        say(`🎉 进化成「${data.evolved}」啦!!`, 4000)
+        say(`进化成「${data.evolved}」啦!!`, 4000)
         setTimeout(() => (evolved.value = ''), 4000)
       } else {
         say(action === 'feed' ? '啊呜啊呜……好吃!' : '呼噜呼噜,好舒服~')
@@ -88,7 +88,7 @@ async function act(action) {
             <span v-if="bubble" class="bubble font-cute">{{ bubble }}</span>
           </transition>
           <transition name="evo">
-            <div v-if="evolved" class="evo-banner font-cute">✨ 进化!{{ evolved }} ✨</div>
+            <div v-if="evolved" class="evo-banner font-cute">进化!{{ evolved }}</div>
           </transition>
           <img
             :src="stageImg"
@@ -97,7 +97,7 @@ async function act(action) {
             :style="{ height: stageSize + 'px' }"
             draggable="false"
           />
-          <div class="fence" aria-hidden="true">🌱 🌾 🌱 🌾 🌱 🌾 🌱</div>
+          <div class="fence" aria-hidden="true"></div>
         </div>
 
         <!-- 状态面板 -->
@@ -121,8 +121,8 @@ async function act(action) {
           </div>
 
           <div class="actions">
-            <button class="btn btn-primary" :disabled="busy" @click="act('feed')">🍰 喂它</button>
-            <button class="btn btn-ghost" :disabled="busy" @click="act('pet')">🫳 摸头</button>
+            <button class="btn btn-primary" :disabled="busy" @click="act('feed')">喂它</button>
+            <button class="btn btn-ghost" :disabled="busy" @click="act('pet')">摸头</button>
           </div>
 
           <p class="stats" v-if="pig">
@@ -178,10 +178,8 @@ async function act(action) {
 
 .fence {
   width: 100%;
-  text-align: center;
-  font-size: 1.1rem;
-  padding: 4px 0 6px;
-  letter-spacing: 6px;
+  border-top: 2px dashed var(--pink-soft);
+  margin: 4px 0 6px;
 }
 
 .bubble {

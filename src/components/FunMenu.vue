@@ -14,8 +14,7 @@ const items = [
   { key: 'weather', icon: '🌦️', label: '天气', event: 'menu-weather' },
   { key: 'laser', icon: '🔴', label: '激光笔', event: 'menu-laser', toggle: 'laser' },
   { key: 'whack', icon: '🎯', label: '拍猪咪', event: 'menu-whack' },
-  { key: 'pet', icon: '🐾', label: '看板娘', event: 'menu-pet' },
-]
+  { key: 'pet', icon: '🐾', label: '看板娘', event: 'menu-pet' },]
 
 function fire(item) {
   window.dispatchEvent(new CustomEvent(item.event))

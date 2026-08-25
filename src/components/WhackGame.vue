@@ -88,7 +88,7 @@ onUnmounted(() => {
 <template>
   <div v-if="playing" class="whack-hud">
     <span>⏱️ {{ timeLeft }}s</span>
-    <span>🐷 {{ score }} 只</span>
+    <span>{{ score }} 只</span>
   </div>
 
   <button

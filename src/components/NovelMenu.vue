@@ -84,7 +84,7 @@ const filtered = computed(() =>
               {{ mySubs.has(n.file) ? '🔔 已订阅' : '🔕 订阅' }}
             </button>
             <button class="btn btn-ghost read" @click="emit('read', n)">在线阅读</button>
-            <button class="btn btn-ghost read" @click="emit('comments', n)">💬 评论</button>
+            <button class="btn btn-ghost read" @click="emit('comments', n)">评论</button>
             <a class="btn btn-primary download" :href="`/downloads/${n.file}`" download>
               <PawPrint :size="18" color="#fff" />
               下载
