@@ -92,7 +92,7 @@ textarea {
   font-size: 1rem;
   font-family: inherit;
   color: var(--ink);
-  background: #fff;
+  background: var(--surface-2);
   outline: none;
   transition: border-color 0.2s;
   resize: vertical;

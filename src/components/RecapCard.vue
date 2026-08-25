@@ -105,7 +105,7 @@ onMounted(async () => {
 
 .mini-tabs button {
   border: 2px solid var(--pink-soft);
-  background: #fff;
+  background: var(--surface-2);
   color: var(--ink);
   border-radius: 999px;
   padding: 6px 22px;
@@ -123,7 +123,7 @@ onMounted(async () => {
 .receipt {
   max-width: 420px;
   margin: 0 auto;
-  background: #fff;
+  background: var(--surface-2);
   padding: 28px 28px 20px;
   font-family: 'JetBrains Mono', 'Noto Sans SC', monospace;
   box-shadow: var(--shadow);

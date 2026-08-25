@@ -81,7 +81,7 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  background: #fff;
+  background: var(--surface-2);
   border: 1px solid var(--pink-pale);
   border-radius: 18px;
   padding: 14px 16px;
@@ -196,7 +196,6 @@ onUnmounted(() => window.removeEventListener('catcafe-msg-posted', load))
 .reply.keeper .owner-badge {
   background: #9b7ede;
 }
-
 .empty {
   text-align: center;
   color: var(--muted);

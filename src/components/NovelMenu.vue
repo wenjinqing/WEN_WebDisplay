@@ -182,7 +182,7 @@ h3 {
 
 .cat-tabs button {
   border: 2px solid var(--pink-soft);
-  background: #fff;
+  background: var(--surface-2);
   color: var(--ink);
   border-radius: 999px;
   padding: 6px 20px;
@@ -221,7 +221,7 @@ h3 {
 
 .sub-btn {
   border: 2px solid var(--pink-soft);
-  background: #fff;
+  background: var(--surface-2);
   color: var(--muted);
   border-radius: 999px;
   padding: 10px 16px;

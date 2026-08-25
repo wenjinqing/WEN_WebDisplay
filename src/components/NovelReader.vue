@@ -170,7 +170,7 @@ function onKey(e) {
 .reader {
   width: min(720px, 100%);
   height: min(86vh, 900px);
-  background: #fff9f4;
+  background: var(--card);
   border-radius: var(--radius);
   border: 2px solid var(--pink-soft);
   box-shadow: 0 24px 64px rgba(91, 58, 71, 0.3);
@@ -186,7 +186,7 @@ function onKey(e) {
   gap: 12px;
   padding: 14px 20px;
   border-bottom: 2px dashed var(--pink-pale);
-  background: #fff;
+  background: var(--surface-2);
 }
 
 .reader-head h3 {
@@ -205,7 +205,7 @@ function onKey(e) {
   padding: 5px 12px;
   font-size: 0.85rem;
   color: var(--pink-deep);
-  background: #fff;
+  background: var(--surface-2);
   outline: none;
   max-width: 180px;
   flex-shrink: 0;
@@ -233,7 +233,7 @@ function onKey(e) {
   overflow-y: auto;
   padding: 28px 32px;
   line-height: 2;
-  color: #4a323d;
+  color: var(--ink);
 }
 
 .reader-body.serif {
@@ -256,13 +256,13 @@ function onKey(e) {
   align-items: center;
   gap: 8px;
   padding: 6px 20px;
-  background: #fff;
+  background: var(--surface-2);
   border-bottom: 2px dashed var(--pink-pale);
 }
 
 .set-btn {
   border: 1.5px solid var(--pink-pale);
-  background: #fff;
+  background: var(--surface-2);
   color: var(--pink-deep);
   border-radius: 999px;
   padding: 3px 14px;
@@ -304,7 +304,7 @@ function onKey(e) {
   gap: 10px;
   padding: 12px 20px;
   border-top: 2px dashed var(--pink-pale);
-  background: #fff;
+  background: var(--surface-2);
 }
 
 .ctl {

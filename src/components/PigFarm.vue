@@ -158,8 +158,8 @@ async function act(action) {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  background: linear-gradient(180deg, #fffef7 0%, #f4f9e8 70%, #e8f3d8 100%);
-  border: 2px dashed #d8c9a8;
+  background: linear-gradient(180deg, var(--bg-deep) 0%, var(--card) 70%, var(--surface-2) 100%);
+  border: 2px dashed var(--pink-soft);
   border-radius: 18px;
   padding: 20px 12px 0;
   overflow: hidden;
@@ -189,7 +189,7 @@ async function act(action) {
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background: #fff;
+  background: var(--surface-2);
   border: 2px solid var(--pink-soft);
   color: var(--pink-deep);
   border-radius: 14px 14px 14px 4px;

@@ -232,7 +232,7 @@ function showMsg(text, ok) {
 }
 
 .postcard {
-  background: #fff;
+  background: var(--surface-2);
   border-radius: 8px;
   padding: 12px 12px 14px;
   box-shadow: 0 8px 20px rgba(233, 93, 127, 0.15);
@@ -301,7 +301,7 @@ function showMsg(text, ok) {
   align-items: center;
   gap: 4px;
   border: 2px solid var(--pink-soft);
-  background: #fff;
+  background: var(--surface-2);
   color: var(--pink-deep);
   border-radius: 999px;
   padding: 3px 12px;

@@ -3,6 +3,7 @@
   --bg: #fff6f8;
   --bg-deep: #ffe9f0;
   --card: #fffdfc;
+  --surface-2: #fff; /* 卡片上的二级面板(阅读器头部/输入框/气泡等) */
   --pink: #f9718f;
   --pink-deep: #e85d7f;
   --pink-soft: #ffc2d4;
@@ -150,18 +151,26 @@ button:focus-visible {
   border-radius: 8px;
 }
 
-/* ===== 深夜暗色模式 ===== */
+/* ===== 深夜暗色模式 =====
+   设计:暖紫罗兰夜空(不是纯黑) + 奶油粉文字。
+   对比度:正文 ≥ 7:1、次级文字 ≥ 4.5:1,所有前景/背景只走变量,避免硬编码漏改。 */
 body.night {
-  --bg: #1c1220;
-  --bg-deep: #241526;
-  --card: #2b1c30;
+  --bg: #191227;
+  --bg-deep: #201735;
+  --card: #2b1f45;
+  --surface-2: #342653;
   --pink: #ff8fab;
-  --pink-deep: #ffb3c9;
-  --pink-soft: #6b3a55;
-  --pink-pale: #452535;
-  --ink: #f3e4ec;
-  --muted: #b893a8;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --pink-deep: #ffb0c6;
+  --pink-soft: #b05787;
+  --pink-pale: #4a3059;
+  --ink: #f6ecf2;
+  --muted: #c4a7c0;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color-scheme: dark; /* 浏览器原生控件/滚动条跟随暗色 */
+}
+
+body.night {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
 }
 
 body.night .font-cute,
@@ -169,13 +178,28 @@ body.night .section-title {
   color: var(--ink);
 }
 
+/* 表单:整体暗面 + 高可见占位符 + 聚焦亮边 */
 body.night input,
 body.night textarea,
 body.night select {
-  background: #241526 !important;
+  background: #2a1f45 !important;
   color: var(--ink) !important;
+  border-color: var(--pink-pale);
 }
 
+body.night input::placeholder,
+body.night textarea::placeholder {
+  color: #9a86a6 !important;
+  opacity: 1;
+}
+
+body.night input:focus,
+body.night textarea:focus,
+body.night select:focus {
+  border-color: var(--pink) !important;
+}
+
+/* 卡片统一暗面:覆盖 scoped 里的硬编码白底 */
 body.night .bubble,
 body.night .receipt,
 body.night .club-card,
@@ -189,22 +213,60 @@ body.night .send-card,
 body.night .board,
 body.night .urge-wall,
 body.night .pen,
-body.night .card {
+body.night .card,
+body.night .msg,
+body.night .art-card,
+body.night .log-box,
+body.night .pixel-card,
+body.night .gallery-note,
+body.night .wall-card,
+body.night .composer,
+body.night .postcard,
+body.night .farm,
+body.night .reader,
+body.night .lightbox-card {
   background: var(--card) !important;
 }
 
 body.night .msg,
 body.night .menu-item,
 body.night .notice {
-  background: #33203a !important;
+  background: var(--surface-2) !important;
 }
 
+/* 二级面板(白底区块):阅读器头尾、标签页、云朵、积木等 */
+body.night .reader-head,
+body.night .reader-settings,
+body.night .reader-foot,
+body.night .cloud,
+body.night .cloud-card,
+body.night .barrel,
+body.night .receiver {
+  background: var(--surface-2) !important;
+}
+
+body.night .ch-select,
+body.night .set-btn,
 body.night .clay-chip,
 body.night .btn-ghost,
 body.night .btn-clay.ghost,
 body.night .mini-tabs button,
 body.night .tab-bar button {
-  background: #33203a !important;
+  background: var(--surface-2) !important;
+}
+
+/* 灯箱/浮层:压暗遮罩,面板用暗卡 */
+body.night .reader-mask {
+  background: rgba(7, 4, 12, 0.72);
+}
+
+body.night .reader-body {
+  color: var(--ink);
+}
+
+body.night .qr-box,
+body.night .art-grid .ph {
+  background: var(--surface-2) !important;
 }
 
 body.night img {
@@ -214,28 +276,114 @@ body.night img {
 /* 首页天幕夜间版 */
 body.night .hero {
   background:
-    radial-gradient(ellipse 60% 45% at 85% 20%, rgba(107, 58, 85, 0.5), transparent 70%),
-    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(69, 37, 53, 0.6), transparent 70%),
-    linear-gradient(165deg, #1c1220 0%, #241526 55%, #2a1a30 100%) !important;
+    radial-gradient(ellipse 60% 45% at 85% 20%, rgba(140, 92, 150, 0.35), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(89, 53, 110, 0.4), transparent 70%),
+    linear-gradient(165deg, #1a1128 0%, #221636 55%, #2c1b42 100%) !important;
 }
 
-/* 阅读器夜间版 */
-body.night .reader-body {
-  background: #241526;
-  color: #e8d5de;
+/* 白天粉底的渐变装饰块 → 夜间深底 */
+body.night .level-card,
+body.night .msg-wall,
+body.night .board,
+body.night .urge-wall {
+  background: var(--card) !important;
 }
 
-body.night .reader-head,
-body.night .reader-foot,
-body.night .reader-settings {
-  background: #2b1c30 !important;
+body.night .owner-badge {
+  background: var(--pink);
+  color: #4a1226;
 }
 
-body.night .reader {
-  background: #241526;
+body.night .keeper-tag,
+body.night .keeper-badge,
+body.night .owner-badge.keeper {
+  background: #6f57bd;
+  color: #fff;
 }
 
-body.night .qr-box,
-body.night .art-grid .ph {
-  background: #241526 !important;
+body.night .reply.keeper {
+  background: #332a56;
+  border-left-color: #8f77d4;
+}
+
+/* 浅粉实底按钮:夜间改深梅字,对比度从 2.2 提到 7.0 */
+body.night .btn-primary,
+body.night .urge-btn,
+body.night .stage-badge,
+body.night .cat-tabs button.active,
+body.night .tab-bar button.active,
+body.night .mini-tabs button.active,
+body.night .like-btn.liked,
+body.night .send,
+body.night .cmt-form button {
+  color: #4a1226 !important;
+}
+
+/* 成功绿:夜间换浅绿(白天保持原样) */
+body.night .ok,
+body.night .send-msg.ok {
+  color: #7fd6a4;
+}
+
+/* 半透明白浮层(工具栏/悬浮球/游戏HUD)→ 半透明深夜 */
+body.night .fab,
+body.night .menu-item,
+body.night .whack-hud,
+body.night .pet-count,
+body.night .zoom-hint,
+body.night .crown {
+  background: rgba(52, 38, 83, 0.95);
+  color: var(--ink);
+}
+
+body.night .fab {
+  color: var(--pink-deep);
+}
+
+/* 留言楼中楼背景 */
+body.night .nested {
+  background: var(--surface-2) !important;
+}
+
+/* 选择文本/滚动条(标准属性) */
+body.night ::selection {
+  background: #6d3560;
+  color: #fff;
+}
+
+body.night {
+  scrollbar-color: #4a3660 #1c1430; /* Firefox */
+}
+
+/* 主页导航条透明粉底 → 半透明深夜 */
+body.night .nav {
+  background: rgba(26, 18, 40, 0.88) !important;
+}
+
+/* 管理员后台 */
+body.night .admin-wrap,
+body.night .admin {
+  background: var(--bg);
+}
+
+body.night .panel,
+body.night .stat-card {
+  background: var(--card) !important;
+}
+
+body.night table th {
+  background: var(--surface-2) !important;
+}
+
+/* 店长专属彩蛋卡:金底 → 深夜金 */
+body.night .special-card {
+  background: linear-gradient(135deg, #3d2f1e, #3a2134);
+  border-color: #8a6d3b;
+}
+
+body.night .special-title {
+  background: linear-gradient(90deg, #e8c468, #ffb0c6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

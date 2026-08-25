@@ -320,7 +320,7 @@ async function petCat() {
   top: -14px;
   left: 50%;
   transform: translateX(-50%);
-  background: #fff;
+  background: var(--surface-2);
   border: 2px solid var(--pink-soft);
   color: var(--pink-deep);
   border-radius: 16px 16px 16px 4px;

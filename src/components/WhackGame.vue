@@ -160,7 +160,7 @@ onUnmounted(() => {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 95;
-  background: #fff;
+  background: var(--surface-2);
   border: 3px dashed var(--pink-soft);
   border-radius: 20px;
   padding: 24px 36px;

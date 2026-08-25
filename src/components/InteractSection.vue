@@ -57,7 +57,7 @@ const tabs = [
 
 .tab-bar button {
   border: 2px solid var(--pink-soft);
-  background: #fff;
+  background: var(--surface-2);
   color: var(--ink);
   border-radius: 999px;
   padding: 9px 26px;
