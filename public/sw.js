@@ -1,5 +1,5 @@
 // 小涩猫咖啡厅 Service Worker —— 静态资源离线缓存
-const CACHE = 'catcafe-v1'
+const CACHE = 'catcafe-v2'
 const ASSETS = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest']
 
 self.addEventListener('install', (e) => {
