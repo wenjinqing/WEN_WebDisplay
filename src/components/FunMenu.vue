@@ -4,12 +4,13 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
 const open = ref(false)
-const active = ref({ danmaku: false, laser: false }) // 由组件回同步状态
+const active = ref({ danmaku: false, laser: false, theme: 'day' }) // 由组件回同步状态
 
 const items = [
   { key: 'share', icon: '💌', label: '分享本站', event: 'menu-share' },
   { key: 'feed', icon: '🍰', label: '投喂', event: 'menu-feed' },
   { key: 'danmaku', icon: '💬', label: '弹幕', event: 'menu-danmaku', toggle: 'danmaku' },
+  { key: 'theme', icon: '🌙', label: '夜间', event: 'menu-theme', toggle: 'theme' },
   { key: 'weather', icon: '🌦️', label: '天气', event: 'menu-weather' },
   { key: 'laser', icon: '🔴', label: '激光笔', event: 'menu-laser', toggle: 'laser' },
   { key: 'whack', icon: '🎯', label: '拍猪咪', event: 'menu-whack' },
@@ -48,7 +49,7 @@ onUnmounted(() => {
         v-for="item in items"
         :key="item.key"
         class="menu-item"
-        :class="{ on: item.toggle && active[item.toggle] }"
+        :class="{ on: item.toggle && (item.toggle === 'theme' ? active.theme === 'night' : active[item.toggle]) }"
         @click="fire(item)"
       >
         <span class="icon">{{ item.icon }}</span>

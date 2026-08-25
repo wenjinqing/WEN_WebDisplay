@@ -20,6 +20,7 @@ onMounted(async () => {
 })
 
 async function urge() {
+  localStorage.setItem('catcafe_ach_urge', '1')
   if (sending.value) return
   sending.value = true
   pressed.value = true

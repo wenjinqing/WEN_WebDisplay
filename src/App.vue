@@ -12,6 +12,7 @@ import InteractSection from './components/InteractSection.vue'
 import PigmiWall from './components/PigmiWall.vue'
 import PigFarm from './components/PigFarm.vue'
 import PigmiClub from './components/PigmiClub.vue'
+import Achievements from './components/Achievements.vue'
 import RecapCard from './components/RecapCard.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import BackToTop from './components/BackToTop.vue'
@@ -22,6 +23,7 @@ import WhackGame from './components/WhackGame.vue'
 import WeatherLayer from './components/WeatherLayer.vue'
 import FunMenu from './components/FunMenu.vue'
 import ShareCard from './components/ShareCard.vue'
+import NightMode from './components/NightMode.vue'
 
 const readingNovel = ref(null)
 const commentingNovel = ref(null)
@@ -39,6 +41,7 @@ const commentingNovel = ref(null)
     <PigmiWall />
     <PigFarm />
     <PigmiClub />
+    <Achievements />
     <RecapCard />
   </main>
   <SiteFooter />
@@ -50,6 +53,7 @@ const commentingNovel = ref(null)
   <WeatherLayer />
   <FunMenu />
   <ShareCard />
+  <NightMode />
   <NovelReader v-if="readingNovel" :novel="readingNovel" @close="readingNovel = null" />
   <CommentBox v-if="commentingNovel" :novel="commentingNovel" @close="commentingNovel = null" />
 </template>

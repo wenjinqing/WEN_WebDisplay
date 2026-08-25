@@ -75,6 +75,7 @@ async function send() {
     const res = await fetch('/api/wall', { method: 'POST', body: fd })
     const data = await res.json()
     if (res.ok) {
+      localStorage.setItem('catcafe_ach_postcard', '1')
       posts.value = [data, ...posts.value]
       nick.value = note.value = ''
       file.value = null

@@ -1,10 +1,42 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PawPrint from './PawPrint.vue'
 import SectionTitle from './SectionTitle.vue'
 import { site } from '../data.js'
 
 const emit = defineEmits(['read', 'comments'])
+
+// ===== 更新订阅 =====
+const nick = ref(localStorage.getItem('catcafe_nick') || '')
+const mySubs = ref(new Set())
+
+onMounted(async () => {
+  if (!nick.value) return
+  try {
+    const res = await fetch(`/api/subscriptions?nick=${encodeURIComponent(nick.value)}`)
+    mySubs.value = new Set(await res.json())
+  } catch { /* 静默 */ }
+})
+
+async function toggleSub(n) {
+  if (!nick.value) {
+    alert('先去「猪咪聚集地」里输入昵称查询一次头衔,就能订阅更新提醒啦~')
+    return
+  }
+  try {
+    const res = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file: n.file, nick: nick.value }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      if (data.subscribed) mySubs.value.add(n.file)
+      else mySubs.value.delete(n.file)
+      mySubs.value = new Set(mySubs.value)
+    }
+  } catch { /* 静默 */ }
+}
 
 const cats = ['全部', '连载中', '已完结', '番外']
 const activeCat = ref('全部')
@@ -43,6 +75,14 @@ const filtered = computed(() =>
             <p class="desc">{{ n.desc }}</p>
           </div>
           <div class="item-actions">
+            <button
+              class="sub-btn"
+              :class="{ on: mySubs.has(n.file) }"
+              :title="mySubs.has(n.file) ? '已订阅,更新会提醒你' : '订阅更新提醒'"
+              @click="toggleSub(n)"
+            >
+              {{ mySubs.has(n.file) ? '🔔 已订阅' : '🔕 订阅' }}
+            </button>
             <button class="btn btn-ghost read" @click="emit('read', n)">在线阅读</button>
             <button class="btn btn-ghost read" @click="emit('comments', n)">💬 评论</button>
             <a class="btn btn-primary download" :href="`/downloads/${n.file}`" download>
@@ -177,6 +217,24 @@ h3 {
 
 .read {
   padding: 12px 20px;
+}
+
+.sub-btn {
+  border: 2px solid var(--pink-soft);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.sub-btn.on {
+  background: var(--pink-pale);
+  border-color: var(--pink);
+  color: var(--pink-deep);
 }
 
 @media (max-width: 720px) {

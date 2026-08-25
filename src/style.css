@@ -149,3 +149,93 @@ button:focus-visible {
   outline-offset: 2px;
   border-radius: 8px;
 }
+
+/* ===== 深夜暗色模式 ===== */
+body.night {
+  --bg: #1c1220;
+  --bg-deep: #241526;
+  --card: #2b1c30;
+  --pink: #ff8fab;
+  --pink-deep: #ffb3c9;
+  --pink-soft: #6b3a55;
+  --pink-pale: #452535;
+  --ink: #f3e4ec;
+  --muted: #b893a8;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+body.night .font-cute,
+body.night .section-title {
+  color: var(--ink);
+}
+
+body.night input,
+body.night textarea,
+body.night select {
+  background: #241526 !important;
+  color: var(--ink) !important;
+}
+
+body.night .bubble,
+body.night .receipt,
+body.night .club-card,
+body.night .polaroid,
+body.night .post,
+body.night .menu-board,
+body.night .panel,
+body.night .fortune,
+body.night .level-card,
+body.night .send-card,
+body.night .board,
+body.night .urge-wall,
+body.night .pen,
+body.night .card {
+  background: var(--card) !important;
+}
+
+body.night .msg,
+body.night .menu-item,
+body.night .notice {
+  background: #33203a !important;
+}
+
+body.night .clay-chip,
+body.night .btn-ghost,
+body.night .btn-clay.ghost,
+body.night .mini-tabs button,
+body.night .tab-bar button {
+  background: #33203a !important;
+}
+
+body.night img {
+  filter: brightness(0.92);
+}
+
+/* 首页天幕夜间版 */
+body.night .hero {
+  background:
+    radial-gradient(ellipse 60% 45% at 85% 20%, rgba(107, 58, 85, 0.5), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(69, 37, 53, 0.6), transparent 70%),
+    linear-gradient(165deg, #1c1220 0%, #241526 55%, #2a1a30 100%) !important;
+}
+
+/* 阅读器夜间版 */
+body.night .reader-body {
+  background: #241526;
+  color: #e8d5de;
+}
+
+body.night .reader-head,
+body.night .reader-foot,
+body.night .reader-settings {
+  background: #2b1c30 !important;
+}
+
+body.night .reader {
+  background: #241526;
+}
+
+body.night .qr-box,
+body.night .art-grid .ph {
+  background: #241526 !important;
+}

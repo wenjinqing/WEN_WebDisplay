@@ -50,6 +50,7 @@ function say(text, ms = 2600) {
 }
 
 async function act(action) {
+  if (action === 'feed') localStorage.setItem('catcafe_ach_feedpig', '1')
   if (busy.value) return
   busy.value = true
   try {

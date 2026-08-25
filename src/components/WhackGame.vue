@@ -12,6 +12,7 @@ let timer = null
 let popTimer = null
 
 function start() {
+  localStorage.setItem('catcafe_ach_whack', '1')
   playing.value = true
   score.value = 0
   timeLeft.value = 30

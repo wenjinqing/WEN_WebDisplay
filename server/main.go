@@ -104,7 +104,9 @@ var (
 )
 
 const tokensFile = "/var/lib/catcafe/tokens.json"
-const hubFile = "/var/lib/catcafe/hub.json" // 猪咪聚集地图文
+const hubFile = "/var/lib/catcafe/hub.json"
+const subsFile = "/var/lib/catcafe/subs.json"   // 作品订阅
+const updFile = "/var/lib/catcafe/updates.json" // 待播报更新 // 猪咪聚集地图文
 const hubDir = "/var/www/shared/hub"        // 聚集地图片目录(双站共享)
 const agentKeyFile = "/var/lib/catcafe/agent.key"
 
@@ -225,6 +227,24 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+// 基础敏感词库(垃圾/辱骂/广告类,可扩充)
+var bannedWords = []string{
+	"代刷", "代充", "加微信", "加qq", "vx:", "wx:", "威信",
+	"赌博", "博彩", "彩票", "开户", "裸聊", "援交", "约炮",
+	"开发票", "办证", "刷单", "刷赞", "刷粉",
+	"fuck", "shit", "porn", "sex", "http://", "https://", "www.",
+}
+
+func hasBanned(text string) bool {
+	lower := strings.ToLower(text)
+	for _, w := range bannedWords {
+		if strings.Contains(lower, w) {
+			return true
+		}
+	}
+	return false
+}
+
 // 店长专属昵称,猪咪们不能使用
 var reservedNicks = map[string]bool{
 	"爱丽丝":     true,
@@ -313,6 +333,10 @@ func handleMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		m.Nick = clean(m.Nick, maxNickLen)
 		m.Content = clean(m.Content, maxTextLen)
+		if hasBanned(m.Content) || hasBanned(m.Nick) {
+			writeJSON(w, 400, map[string]string{"error": "内容有点不合适,换种说法喵~"})
+			return
+		}
 		if isReserved(m.Nick) {
 			writeJSON(w, 400, map[string]string{"error": "这个名字属于店长,换一个喵~"})
 			return
@@ -456,6 +480,22 @@ func handlePutContent(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(data, &check); err != nil {
 		writeJSON(w, 400, map[string]string{"error": "内容不是合法 JSON"})
 		return
+	}
+	// 检测作品更新,自动发公告
+	var oldC map[string]any
+	if oldData, err2 := os.ReadFile(contentFile); err2 == nil {
+		json.Unmarshal(oldData, &oldC)
+	}
+	newTitles := detectNovelUpdates(oldC, check)
+	if len(newTitles) > 0 {
+		notice := map[string]any{
+			"date": time.Now().Format("2006-01-02"),
+			"tag":  "更新",
+			"text": "「" + strings.Join(newTitles, "」「") + "」有新内容上架啦,快去看看~",
+		}
+		if arr, ok := check["notices"].([]any); ok {
+			check["notices"] = append([]any{notice}, arr...)
+		}
 	}
 	pretty, _ := json.MarshalIndent(check, "", "  ")
 	tmp := contentFile + ".tmp"
@@ -666,6 +706,11 @@ func handleWall(w http.ResponseWriter, r *http.Request) {
 		}
 
 		nick := clean(r.FormValue("nick"), maxNickLen)
+		note := clean(r.FormValue("note"), 60)
+		if hasBanned(nick) || hasBanned(note) {
+			writeJSON(w, 400, map[string]string{"error": "内容有点不合适,换种说法喵~"})
+			return
+		}
 		if isReserved(nick) {
 			writeJSON(w, 400, map[string]string{"error": "这个名字属于店长,换一个喵~"})
 			return
@@ -676,7 +721,7 @@ func handleWall(w http.ResponseWriter, r *http.Request) {
 		post := WallPost{
 			Img:  name,
 			Nick: nick,
-			Note: clean(r.FormValue("note"), 60),
+			Note: note,
 			Time: time.Now().Format("2006-01-02 15:04"),
 		}
 		wallMu.Lock()
@@ -1004,6 +1049,10 @@ func handleComments(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cm.Score = req.Score
+		if hasBanned(cm.Content) || hasBanned(cm.Nick) {
+			writeJSON(w, 400, map[string]string{"error": "内容有点不合适,换种说法喵~"})
+			return
+		}
 		if cm.Content == "" {
 			writeJSON(w, 400, map[string]string{"error": "评论内容不能为空喵"})
 			return
@@ -1263,6 +1312,9 @@ func handleRecap(w http.ResponseWriter, r *http.Request) {
 	if topNick != "" {
 		out["topPigmi"] = map[string]any{"nick": topNick, "points": topPoints}
 	}
+	updMu.Lock()
+	out["updates"] = updLog
+	updMu.Unlock()
 	writeJSON(w, 200, out)
 }
 
@@ -1333,6 +1385,22 @@ func handleAgentContent(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal(data, &check); err != nil {
 			writeJSON(w, 400, map[string]string{"error": "invalid json"})
 			return
+		}
+		// 检测作品更新,自动发公告
+		var oldC map[string]any
+		if oldData, err2 := os.ReadFile(contentFile); err2 == nil {
+			json.Unmarshal(oldData, &oldC)
+		}
+		newTitles := detectNovelUpdates(oldC, check)
+		if len(newTitles) > 0 {
+			notice := map[string]any{
+				"date": time.Now().Format("2006-01-02"),
+				"tag":  "更新",
+				"text": "「" + strings.Join(newTitles, "」「") + "」有新内容上架啦,快去看看~",
+			}
+			if arr, ok := check["notices"].([]any); ok {
+				check["notices"] = append([]any{notice}, arr...)
+			}
 		}
 		// 防止打码群号覆盖真实值(agent 读到的是打码版)
 		if fc, ok := check["fanClub"].(map[string]any); ok && fc["qq"] == qqMask {
@@ -1686,6 +1754,144 @@ func handleGateVerify(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"pass": true, "qq": qq})
 }
 
+// ---------- 作品订阅 & 更新检测 ----------
+
+var (
+	subsMu sync.Mutex
+	subs   = map[string][]string{} // 作品file -> 订阅昵称列表
+	updMu  sync.Mutex
+	updLog []map[string]any // 待播报更新 [{novel, subscribers, time}]
+)
+
+func loadSubs() {
+	data, err := os.ReadFile(subsFile)
+	if err == nil {
+		json.Unmarshal(data, &subs)
+	}
+	data2, err2 := os.ReadFile(updFile)
+	if err2 == nil {
+		json.Unmarshal(data2, &updLog)
+	}
+}
+
+func saveSubs() {
+	data, _ := json.MarshalIndent(subs, "", "  ")
+	tmp := subsFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err == nil {
+		os.Rename(tmp, subsFile)
+	}
+}
+
+func saveUpd() {
+	data, _ := json.MarshalIndent(updLog, "", "  ")
+	tmp := updFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err == nil {
+		os.Rename(tmp, updFile)
+	}
+}
+
+// POST /api/subscribe {file, nick} — 订阅/取消订阅(切换)
+func handleSubscribe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var req struct {
+		File string `json:"file"`
+		Nick string `json:"nick"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.File == "" {
+		writeJSON(w, 400, map[string]string{"error": "参数不对"})
+		return
+	}
+	nick := clean(req.Nick, maxNickLen)
+	if nick == "" || nick == "匿名猪咪" {
+		writeJSON(w, 400, map[string]string{"error": "先去猪咪聚集地里输个昵称再订阅哦"})
+		return
+	}
+	subsMu.Lock()
+	list := subs[req.File]
+	subscribed := true
+	idx := -1
+	for i, n := range list {
+		if n == nick {
+			idx = i
+			break
+		}
+	}
+	if idx >= 0 {
+		subs[req.File] = append(list[:idx], list[idx+1:]...)
+		subscribed = false
+	} else {
+		subs[req.File] = append(list, nick)
+	}
+	saveSubs()
+	subsMu.Unlock()
+	writeJSON(w, 200, map[string]any{"subscribed": subscribed})
+}
+
+// GET /api/subscriptions?nick=xx — 查某昵称的订阅列表
+func handleMySubs(w http.ResponseWriter, r *http.Request) {
+	nick := clean(r.URL.Query().Get("nick"), maxNickLen)
+	subsMu.Lock()
+	files := []string{}
+	for f, list := range subs {
+		for _, n := range list {
+			if n == nick {
+				files = append(files, f)
+				break
+			}
+		}
+	}
+	subsMu.Unlock()
+	writeJSON(w, 200, files)
+}
+
+// 检测内容更新:对比新旧 novels,发现新作品/新章节 → 记入待播报 + 自动发公告
+func detectNovelUpdates(oldC, newC map[string]any) []string {
+	getFiles := func(c map[string]any) map[string]string {
+		m := map[string]string{}
+		if arr, ok := c["novels"].([]any); ok {
+			for _, it := range arr {
+				if nv, ok := it.(map[string]any); ok {
+					title, _ := nv["title"].(string)
+					file, _ := nv["file"].(string)
+					m[file] = title
+					if chs, ok := nv["chapters"].([]any); ok {
+						for _, ch := range chs {
+							if c2, ok := ch.(map[string]any); ok {
+								cf, _ := c2["file"].(string)
+								m[cf] = title
+							}
+						}
+					}
+				}
+			}
+		}
+		return m
+	}
+	oldM, newM := getFiles(oldC), getFiles(newC)
+	var newTitles []string
+	subsMu.Lock()
+	for f, title := range newM {
+		if _, exists := oldM[f]; !exists && title != "" {
+			newTitles = append(newTitles, title)
+			nicks := subs[f]
+			if len(nicks) > 0 {
+				updMu.Lock()
+				updLog = append(updLog, map[string]any{
+					"novel": title, "subscribers": nicks,
+					"time": time.Now().Format("2006-01-02 15:04"),
+				})
+				saveUpd()
+				updMu.Unlock()
+			}
+		}
+	}
+	subsMu.Unlock()
+	return newTitles
+}
+
 // ---------- 猪咪聚集地(图文墙) ----------
 
 type HubPost struct {
@@ -1845,6 +2051,53 @@ func handleAgentMsgPost(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, m)
 }
 
+// GET /api/rss — 公告+作品订阅源
+func handleRSS(w http.ResponseWriter, r *http.Request) {
+	data, err := os.ReadFile(contentFile)
+	if err != nil {
+		data = []byte(defaultContent)
+	}
+	var c map[string]any
+	json.Unmarshal(data, &c)
+
+	title, _ := c["title"].(string)
+	slogan, _ := c["slogan"].(string)
+	host := "https://" + r.Host
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+	b.WriteString(`<rss version="2.0"><channel>`)
+	fmt.Fprintf(&b, "<title>%s</title><link>%s</link><description>%s</description>\n", title, host, slogan)
+	addItem := func(t, desc, date string) {
+		fmt.Fprintf(&b, "<item><title>%s</title><description><![CDATA[%s]]></description><link>%s</link><pubDate>%s</pubDate></item>\n",
+			t, desc, host, date)
+	}
+	if arr, ok := c["notices"].([]any); ok {
+		for i, it := range arr {
+			if i >= 20 {
+				break
+			}
+			if n, ok := it.(map[string]any); ok {
+				t, _ := n["text"].(string)
+				d, _ := n["date"].(string)
+				tag, _ := n["tag"].(string)
+				addItem("["+tag+"] "+t, t, d)
+			}
+		}
+	}
+	if arr, ok := c["novels"].([]any); ok {
+		for _, it := range arr {
+			if n, ok := it.(map[string]any); ok {
+				t, _ := n["title"].(string)
+				desc, _ := n["desc"].(string)
+				addItem("[作品] "+t, desc, "")
+			}
+		}
+	}
+	b.WriteString("</channel></rss>")
+	w.Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
+	w.Write([]byte(b.String()))
+}
+
 // ---------- 启动 ----------
 
 func main() {
@@ -1862,6 +2115,7 @@ func main() {
 	loadAgentKey()
 	loadPig()
 	loadHub()
+	loadSubs()
 
 	// 首次启动:写入默认店主密码哈希
 	if _, err := os.Stat(passFile); os.IsNotExist(err) {
@@ -1882,6 +2136,9 @@ func main() {
 	mux.HandleFunc("/api/points", handlePoints)
 	mux.HandleFunc("/api/points/add", handlePointsAdd)
 	mux.HandleFunc("/api/recap", handleRecap)
+	mux.HandleFunc("/api/rss", handleRSS)
+	mux.HandleFunc("/api/subscribe", handleSubscribe)
+	mux.HandleFunc("/api/subscriptions", handleMySubs)
 	mux.HandleFunc("/api/agent/content", handleAgentContent)
 	mux.HandleFunc("/api/agent/stats", handleAgentStats)
 	mux.HandleFunc("/api/admin/content-full", handleAdminContentFull)

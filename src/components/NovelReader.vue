@@ -19,6 +19,8 @@ const error = ref('')
 const pages = ref([])
 const page = ref(0)
 const fontSize = ref(17)
+const fontSerif = ref(localStorage.getItem('reader_serif') === '1')
+const lineH = ref(Number(localStorage.getItem('reader_lineh')) || 2)
 const contentEl = ref(null)
 
 const total = computed(() => pages.value.length)
@@ -107,7 +109,26 @@ function onKey(e) {
         <button class="close" aria-label="关闭" @click="emit('close')">✕</button>
       </header>
 
-      <div ref="contentEl" class="reader-body" :style="{ fontSize: fontSize + 'px' }">
+      <!-- 阅读进度条 -->
+      <div class="progress-bar">
+        <div class="progress-fill" :style="{ width: total ? ((page + 1) / total) * 100 + '%' : '0%' }" />
+      </div>
+      <div class="reader-settings">
+        <button class="set-btn" :class="{ on: fontSerif }" @click="fontSerif = !fontSerif; localStorage.setItem('reader_serif', fontSerif ? '1' : '0')">
+          {{ fontSerif ? '宋体' : '黑体' }}
+        </button>
+        <button class="set-btn" @click="lineH = lineH >= 2.4 ? 1.7 : lineH + 0.2; localStorage.setItem('reader_lineh', String(lineH))">
+          行距 {{ lineH.toFixed(1) }}
+        </button>
+        <span class="progress-text">{{ total ? `第 ${page + 1} / ${total} 页` : '' }}</span>
+      </div>
+
+      <div
+        ref="contentEl"
+        class="reader-body"
+        :class="{ serif: fontSerif }"
+        :style="{ fontSize: fontSize + 'px', lineHeight: lineH }"
+      >
         <p v-if="loading" class="state">正在端上桌……</p>
         <p v-else-if="error" class="state">{{ error }}</p>
         <template v-else>
@@ -213,6 +234,51 @@ function onKey(e) {
   padding: 28px 32px;
   line-height: 2;
   color: #4a323d;
+}
+
+.reader-body.serif {
+  font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+}
+
+.progress-bar {
+  height: 3px;
+  background: var(--pink-pale);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pink-soft), var(--pink));
+  transition: width 0.3s ease;
+}
+
+.reader-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 20px;
+  background: #fff;
+  border-bottom: 2px dashed var(--pink-pale);
+}
+
+.set-btn {
+  border: 1.5px solid var(--pink-pale);
+  background: #fff;
+  color: var(--pink-deep);
+  border-radius: 999px;
+  padding: 3px 14px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.set-btn.on {
+  background: var(--pink-pale);
+  border-color: var(--pink-soft);
+}
+
+.progress-text {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .para {

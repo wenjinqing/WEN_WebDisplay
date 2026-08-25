@@ -59,6 +59,7 @@ function spawnHeart(x, y) {
 function tryTogether() {
   const dist = Math.hypot(cat.x - pig.x, cat.y - pig.y)
   if (dist < 9 && pig.mode !== 'together' && !isNight.value) {
+    localStorage.setItem('catcafe_ach_together', '1')
     pig.mode = 'together'
     togetherUntil = Date.now() + 8000
     say(cat, '……靠这么近干嘛啦', 2200)
@@ -100,6 +101,7 @@ function closePortal() {
 }
 
 function enterGlitch() {
+  localStorage.setItem('catcafe_ach_glitch', '1')
   location.href = '/glitch.html'
 }
 

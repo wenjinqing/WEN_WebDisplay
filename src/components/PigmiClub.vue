@@ -27,6 +27,7 @@ async function verify() {
     const data = await res.json()
     if (data.pass) {
       unlocked.value = data.qq
+      localStorage.setItem('catcafe_ach_gate', '1')
       localStorage.setItem('catcafe_gate_qq', data.qq)
     } else {
       wrong.value = true

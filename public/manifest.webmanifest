@@ -1,0 +1,21 @@
+{
+  "name": "爱丽丝的小涩猫咖啡厅",
+  "short_name": "涩猫咖啡厅",
+  "description": "百合小说作者「爱丽丝猫猫酱」的粉丝后援会",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff6f8",
+  "theme_color": "#f9718f",
+  "icons": [
+    {
+      "src": "/alice.png",
+      "sizes": "170x170",
+      "type": "image/png"
+    },
+    {
+      "src": "/og-cover.png",
+      "sizes": "400x400",
+      "type": "image/png"
+    }
+  ]
+}

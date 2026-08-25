@@ -34,6 +34,7 @@ onMounted(async () => {
 })
 
 async function petCat() {
+  localStorage.setItem('catcafe_ach_petcat', '1')
   meow.value = meows[Math.floor(Math.random() * meows.length)]
   clearTimeout(meowTimer)
   meowTimer = setTimeout(() => (meow.value = ''), 1500)

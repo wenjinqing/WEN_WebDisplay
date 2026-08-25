@@ -22,3 +22,8 @@ const reveal = {
 }
 
 createApp(App).directive('reveal', reveal).mount('#app')
+
+// PWA Service Worker 注册
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
+}
