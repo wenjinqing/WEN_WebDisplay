@@ -37,6 +37,19 @@ function onAppInstalled() {
 
 async function onInstallClick() {
   open.value = false
+  // 安卓浏览器:直接下载官方 APK 安装包
+  if (/android/i.test(navigator.userAgent)) {
+    tip.value = '开始下载 APK 安装包,下好后点开安装(需允许「未知来源」安装)喵~'
+    clearTimeout(tipTimer)
+    tipTimer = setTimeout(() => (tip.value = ''), 8000)
+    const a = document.createElement('a')
+    a.href = '/downloads/app/catcafe.apk'
+    a.download = '涩猫咖啡厅.apk'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    return
+  }
   if (deferredPrompt) {
     deferredPrompt.prompt()
     await deferredPrompt.userChoice.catch(() => null)

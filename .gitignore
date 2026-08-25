@@ -4,3 +4,7 @@ dist/
 deploy/
 *.tar.gz
 server/catcafe-api
+
+# 签名密钥绝不入库
+catcafe.keystore
+*.keystore

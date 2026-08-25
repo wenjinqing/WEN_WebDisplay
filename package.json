@@ -9,10 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.0",
     "vue": "^3.4.21"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
     "@vitejs/plugin-vue": "^5.0.4",
+    "typescript": "^7.0.2",
     "vite": "^5.2.0"
   }
 }

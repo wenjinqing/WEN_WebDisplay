@@ -2768,5 +2768,31 @@ func main() {
 	})
 
 	log.Printf("猫咖 API 营业中 → %s", listenAddr)
-	log.Fatal(http.ListenAndServe(listenAddr, mux))
+	log.Fatal(http.ListenAndServe(listenAddr, corsMiddleware(mux)))
+}
+
+// APP(Capacitor WebView)跨域放行:
+// APP 里页面来自 https://localhost / capacitor://localhost,调用线上 API 需要 CORS。
+// 网页同源访问不带 Origin 头,不受影响
+var allowedOrigins = map[string]bool{
+	"https://localhost":     true,
+	"http://localhost":      true,
+	"capacitor://localhost": true,
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if allowedOrigins[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
