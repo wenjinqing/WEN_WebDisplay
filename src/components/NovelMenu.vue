@@ -246,12 +246,20 @@ h3 {
     align-items: flex-start;
     gap: 14px;
   }
+  /* 四个操作按钮 2×2 排布,避免一排溢出屏幕 */
   .item-actions {
     align-self: stretch;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
-  .item-actions .btn {
-    flex: 1;
+  .item-actions .btn,
+  .item-actions .sub-btn {
+    width: 100%;
     justify-content: center;
+    text-align: center;
+    padding: 10px 6px;
+    font-size: 0.88rem;
   }
 }
 </style>

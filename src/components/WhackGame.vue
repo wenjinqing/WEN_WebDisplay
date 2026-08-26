@@ -17,12 +17,22 @@ function start() {
   score.value = 0
   timeLeft.value = 30
   result.value = ''
+  document.body.style.overflow = 'hidden' // 冻结页面,防止滚动/误触背后的按钮
   window.dispatchEvent(new CustomEvent('whack', { detail: 'start' }))
   timer = setInterval(() => {
     timeLeft.value--
     if (timeLeft.value <= 0) end()
   }, 1000)
   pop()
+}
+
+function quit() {
+  clearInterval(timer)
+  clearTimeout(popTimer)
+  playing.value = false
+  target.value = null
+  document.body.style.overflow = ''
+  window.dispatchEvent(new CustomEvent('whack', { detail: 'end' }))
 }
 
 function pop() {
@@ -47,6 +57,7 @@ async function end() {
   clearTimeout(popTimer)
   playing.value = false
   target.value = null
+  document.body.style.overflow = ''
   window.dispatchEvent(new CustomEvent('whack', { detail: 'end' }))
   if (score.value > best.value) {
     best.value = score.value
@@ -81,14 +92,19 @@ onMounted(() => window.addEventListener('menu-whack', onMenuWhack))
 onUnmounted(() => {
   clearInterval(timer)
   clearTimeout(popTimer)
+  document.body.style.overflow = ''
   window.removeEventListener('menu-whack', onMenuWhack)
 })
 </script>
 
 <template>
+  <!-- 游戏护盾:全屏透明层,吞掉所有点击/滑动,防止点到背后的按钮 -->
+  <div v-if="playing" class="whack-shield" @pointerdown.prevent @touchmove.prevent></div>
+
   <div v-if="playing" class="whack-hud">
     <span>⏱️ {{ timeLeft }}s</span>
     <span>{{ score }} 只</span>
+    <button class="whack-quit" @pointerdown.stop="quit">退出</button>
   </div>
 
   <button
@@ -110,7 +126,15 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-
+/* 全屏护盾:在游戏 HUD/目标之下,页面内容之上 */
+.whack-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 89;
+  background: rgba(255, 246, 248, 0.45);
+  backdrop-filter: blur(1px);
+  touch-action: none;
+}
 
 .whack-hud {
   position: fixed;
@@ -119,6 +143,7 @@ onUnmounted(() => {
   transform: translateX(-50%);
   z-index: 90;
   display: flex;
+  align-items: center;
   gap: 18px;
   background: rgba(255, 255, 255, 0.94);
   border: 2px solid var(--pink-soft);
@@ -127,6 +152,17 @@ onUnmounted(() => {
   font-size: 1rem;
   color: var(--ink);
   box-shadow: var(--shadow);
+}
+
+.whack-quit {
+  border: none;
+  background: var(--pink-pale);
+  color: var(--pink-deep);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .whack-target {

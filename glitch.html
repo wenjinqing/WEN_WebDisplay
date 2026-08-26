@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>love.exe</title>
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      :root {
+        --bg: #160818;
+        --pink: #ff9ecf;
+        --hot: #ff5da2;
+        --lav: #c5a3ff;
+        --white: #fff0f7;
+      }
+
+      body {
+        background: var(--bg);
+        background-image:
+          radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255, 93, 162, 0.12), transparent),
+          radial-gradient(ellipse 50% 40% at 80% 90%, rgba(197, 163, 255, 0.1), transparent);
+        color: var(--white);
+        font-family: 'Noto Sans SC', monospace;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+
+      /* ===== 前方高能确认页 ===== */
+      #gate {
+        position: fixed; inset: 0; z-index: 200;
+        background: linear-gradient(165deg, #fff6f8, #ffe9f0 60%, #f6efff);
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+      }
+      .gate-card {
+        background: #fffdfc; border: 3px solid #ffc2d4; border-radius: 24px;
+        box-shadow: 0 16px 40px rgba(233, 93, 127, 0.2);
+        max-width: 420px; padding: 36px 32px; text-align: center; color: #5b3a47;
+      }
+      .gate-card .emoji { font-size: 2.4rem; margin-bottom: 10px; }
+      .gate-card h1 { font-family: 'ZCOOL KuaiLe', sans-serif; color: #e85d7f; font-size: 1.35rem; margin-bottom: 12px; }
+      .gate-card p { font-size: 0.92rem; line-height: 1.9; color: #8a6270; }
+      .gate-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; }
+      .gate-btn { border-radius: 999px; padding: 12px 26px; font-size: 0.95rem; cursor: pointer; border: 2px solid transparent; font-family: inherit; transition: transform 0.15s; }
+      .gate-btn.go { background: #f9718f; color: #fff; box-shadow: 3px 4px 0 #d14a6e; }
+      .gate-btn.back { background: #fff; color: #e85d7f; border-color: #ffc2d4; }
+      .gate-btn:hover { transform: translateY(-2px); }
+
+      /* ===== 终端(加长版) ===== */
+      #terminal {
+        display: none; position: fixed; inset: 0; z-index: 80;
+        background: #07070c; padding: 40px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 15px; color: #ff9ecf;
+        white-space: pre-wrap; line-height: 1.9;
+        transition: opacity 0.35s;
+      }
+      #terminal.on { display: block; }
+      #terminal.done { opacity: 0; pointer-events: none; }
+      #terminal .ok { color: #ff5da2; }
+      #terminal .warn { color: #ffd3e6; }
+      #terminal .crazy { color: #c5a3ff; }
+      .cursor::after { content: '█'; animation: blink 0.8s steps(1) infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+
+      /* ===== 桌面 ===== */
+      #desktop { display: none; position: fixed; inset: 0; }
+      #desktop.on { display: block; }
+
+      .scanlines {
+        position: fixed; inset: 0; z-index: 90; pointer-events: none;
+        background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(255, 158, 207, 0.03) 4px);
+      }
+
+      .win {
+        position: absolute;
+        background: #241021;
+        border: 2px solid var(--pink);
+        box-shadow: 0 0 0 1px #3d1a33, 6px 6px 0 rgba(255, 93, 162, 0.25);
+        min-width: 260px; z-index: 10;
+      }
+      .win-bar {
+        background: linear-gradient(90deg, var(--hot), var(--lav));
+        color: #2b0f22; font-size: 12px; font-weight: 700;
+        padding: 4px 10px; display: flex; justify-content: space-between; align-items: center;
+        user-select: none; font-family: 'Noto Sans SC', sans-serif;
+      }
+      .win-bar .x {
+        background: #2b0f22; color: var(--pink);
+        width: 16px; height: 16px; font-size: 10px;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+      }
+      .win-body { padding: 14px 16px; font-size: 13px; line-height: 1.8; font-family: 'JetBrains Mono', 'Noto Sans SC', monospace; }
+
+      #main-win { left: 50%; top: 44%; transform: translate(-50%, -50%); width: min(520px, 92vw); z-index: 12; }
+      #main-win .win-body { text-align: center; padding: 26px 18px; }
+
+      .glitch-title {
+        font-family: 'ZCOOL KuaiLe', sans-serif;
+        font-size: clamp(1.6rem, 6vw, 3rem);
+        color: var(--white); position: relative; letter-spacing: 3px;
+        text-shadow: 0 0 18px rgba(255, 93, 162, 0.7);
+      }
+      .glitch-title::before, .glitch-title::after {
+        content: attr(data-text); position: absolute; left: 0; top: 0; width: 100%; overflow: hidden; pointer-events: none;
+      }
+      .glitch-title::before { color: var(--hot); animation: rgbA 2s steps(3) infinite; }
+      .glitch-title::after { color: var(--lav); animation: rgbB 1.6s steps(3) infinite; }
+      @keyframes rgbA {
+        0%, 88% { transform: translate(0); clip-path: inset(0); opacity: 0.7; }
+        90% { transform: translate(-8px, 2px); clip-path: inset(15% 0 50% 0); }
+        94% { transform: translate(6px, -2px); clip-path: inset(60% 0 10% 0); }
+        98%, 100% { transform: translate(0); opacity: 0.7; }
+      }
+      @keyframes rgbB {
+        0%, 90% { transform: translate(0); clip-path: inset(0); opacity: 0.6; }
+        92% { transform: translate(7px, -2px); clip-path: inset(8% 0 72% 0); }
+        96% { transform: translate(-6px, 2px); clip-path: inset(68% 0 6% 0); }
+        99%, 100% { transform: translate(0); opacity: 0.6; }
+      }
+
+      .love-meter { margin: 18px 0 8px; text-align: left; }
+      .meter-row { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 6px; }
+      .meter-row .name { width: 52px; color: var(--lav); flex-shrink: 0; }
+      .meter { flex: 1; height: 12px; border: 1px solid var(--pink); background: #160818; overflow: hidden; }
+      .meter .fill { height: 100%; background: repeating-linear-gradient(45deg, var(--hot) 0 6px, var(--pink) 6px 12px); transition: width 0.5s ease; }
+      .meter .fill.sanity { background: repeating-linear-gradient(45deg, #7ee8c7 0 6px, #4fd1a5 6px 12px); }
+      .meter-row .pct { width: 38px; text-align: right; }
+
+      .back-btn {
+        margin-top: 16px; background: var(--pink); color: #2b0f22; border: none; font-weight: 700;
+        font-family: 'ZCOOL KuaiLe', 'Noto Sans SC', sans-serif;
+        font-size: 15px; padding: 10px 30px; cursor: pointer;
+        box-shadow: 3px 3px 0 var(--hot); transition: transform 0.15s;
+      }
+      .back-btn:hover { transform: translate(-1px, -2px); }
+      .back-btn:active { transform: translate(2px, 2px); box-shadow: none; }
+      .back-btn.locked { opacity: 0.55; cursor: not-allowed; }
+      .back-btn.locked:active { animation: deny 0.25s ease; transform: none; box-shadow: 3px 3px 0 var(--hot); }
+      @keyframes deny { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+      /* 病娇文字(可点破) */
+      .yandere {
+        position: fixed; z-index: 5;
+        font-family: 'ZCOOL KuaiLe', sans-serif;
+        white-space: nowrap; cursor: pointer;
+        animation: yIn 0.6s ease forwards, yFlick var(--fl, 3s) steps(1) infinite;
+      }
+      .yandere:hover { filter: brightness(1.4); }
+      @keyframes yIn {
+        from { opacity: 0; transform: scale(0.7) rotate(var(--rot, 0deg)); }
+        to { opacity: var(--op, 0.8); transform: scale(1) rotate(var(--rot, 0deg)); }
+      }
+      @keyframes yFlick {
+        0%, 90% { opacity: var(--op, 0.8); }
+        91% { opacity: 0.08; }
+        93%, 100% { opacity: var(--op, 0.8); }
+      }
+      .yandere.corrupting { font-family: 'JetBrains Mono', monospace; color: var(--lav) !important; }
+      .yandere.pop { animation: popOut 0.25s ease forwards !important; }
+      @keyframes popOut {
+        to { opacity: 0; transform: scale(1.6) rotate(var(--rot, 0deg)); }
+      }
+
+      /* 点破加分飘字 */
+      .plus-float {
+        position: fixed; z-index: 30; pointer-events: none;
+        color: #7ee8c7; font-size: 14px; font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        animation: floatUp 0.9s ease-out forwards;
+      }
+      @keyframes floatUp {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-46px); }
+      }
+
+      /* 乱码爆发 */
+      #corrupt {
+        position: fixed; inset: 0; z-index: 85;
+        font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1.25;
+        color: var(--pink); background: rgba(22, 8, 24, 0.9);
+        word-break: break-all; padding: 10px;
+        opacity: 0; pointer-events: none;
+        text-shadow: 0 0 6px rgba(255, 93, 162, 0.8);
+      }
+      #corrupt.on { opacity: 1; }
+
+      /* 结局 */
+      #ending {
+        display: none; position: fixed; inset: 0; z-index: 150;
+        background: linear-gradient(165deg, #fff6f8, #ffe9f0 60%, #f6efff);
+        align-items: center; justify-content: center; text-align: center;
+        color: #5b3a47; padding: 20px;
+      }
+      #ending.on { display: flex; animation: fadeIn 0.8s ease; }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      .end-card {
+        background: #fffdfc; border: 3px solid #ffc2d4; border-radius: 24px;
+        box-shadow: 0 16px 40px rgba(233, 93, 127, 0.2);
+        max-width: 440px; padding: 40px 34px;
+      }
+      .end-card h1 { font-family: 'ZCOOL KuaiLe', sans-serif; color: #e85d7f; font-size: 1.5rem; margin: 10px 0 14px; }
+      .end-card p { font-size: 0.92rem; line-height: 1.9; color: #8a6270; }
+
+      /* 任务栏 */
+      #taskbar {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 95;
+        height: 36px; background: #241021; border-top: 2px solid var(--pink);
+        display: flex; align-items: center; gap: 10px; padding: 0 12px;
+        font-size: 12px; font-family: 'Noto Sans SC', monospace;
+      }
+      .start-btn { background: linear-gradient(180deg, var(--hot), #d1467f); color: #fff; font-weight: 700; border: none; padding: 4px 16px; cursor: pointer; box-shadow: 2px 2px 0 #6e2a4e; }
+      .task-item { color: var(--pink); border: 1px solid #4a2440; padding: 3px 12px; background: #1a0c17; }
+      .task-time { margin-left: auto; color: var(--lav); }
+
+      @media (prefers-reduced-motion: reduce) {
+        .glitch-title::before, .glitch-title::after { animation: none; }
+        #corrupt { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 前方高能确认 -->
+    <div id="gate">
+      <div class="gate-card">
+        <div class="emoji">⚠️🐾</div>
+        <h1>前方高能预警</h1>
+        <p>你发现了一个隐藏区域。<br />里面是<strong>病娇浓度超标的彩蛋</strong>,画风突变注意。<br />胆小的猪咪请抱着猫再进~</p>
+        <div class="gate-actions">
+          <button class="gate-btn go" onclick="enter()">我不怕,进去看看</button>
+          <button class="gate-btn back" onclick="location.href='/'">算了,回猫咖</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 黑客终端(加长) -->
+    <div id="terminal"><span class="cursor"></span></div>
+
+    <!-- 桌面 -->
+    <div id="desktop">
+      <div class="scanlines"></div>
+      <div id="corrupt"></div>
+
+      <div class="win" id="main-win">
+        <div class="win-bar"><span>💗 love.exe — 正在运行</span><span class="x">×</span></div>
+        <div class="win-body">
+          <h1 class="glitch-title" data-text="小涩猫咖啡厅">小涩猫咖啡厅</h1>
+          <p style="color: var(--pink); font-size: 12px; margin-top: 10px" id="subline">已被我接管了哦</p>
+          <div class="love-meter">
+            <div class="meter-row"><span class="name">好感度</span><div class="meter"><div class="fill" style="width: 100%"></div></div><span class="pct">MAX</span></div>
+            <div class="meter-row"><span class="name">占有度</span><div class="meter"><div class="fill" style="width: 96%"></div></div><span class="pct">96%</span></div>
+            <div class="meter-row"><span class="name">理性值</span><div class="meter"><div class="fill sanity" id="sanity-fill" style="width: 3%"></div></div><span class="pct" id="sanity-num">3%</span></div>
+          </div>
+          <p style="font-size: 11px; color: var(--lav); margin-top: 6px">💡 点破漂浮的文字、关掉弹窗可以恢复理性,攒满 100% 就能修复系统</p>
+          <button class="back-btn locked" id="back-btn">修复系统(理性不足)</button>
+        </div>
+      </div>
+
+      <div id="taskbar">
+        <button class="start-btn">▶ 开始</button>
+        <span class="task-item">love.exe</span>
+        <span class="task-item">小涩猫咖啡厅(已被接管)</span>
+        <span class="task-time" id="task-time">25:61</span>
+      </div>
+    </div>
+
+    <!-- 结局 -->
+    <div id="ending">
+      <div class="end-card">
+        <div style="font-size: 2.4rem">🐾🎉</div>
+        <h1>系统修复完成!</h1>
+        <p>理性值 100%,你挣脱了 love.exe 的控制。<br />小涩猫咖啡厅恢复正常营业~<br /><br /><strong>……不过她说了,随时欢迎你再回来哦。</strong></p>
+        <div class="gate-actions">
+          <button class="gate-btn go" onclick="location.href='/'">回猫咖</button>
+          <button class="gate-btn back" onclick="location.reload()">再玩一次</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const GLYPHS = '!<>-_\\/[]{}—=+*^?#@$%&01アイウエオカキクケコ愛你永久♡♥'
+
+      // ===== 加长黑客终端 =====
+      const lines = [
+        '> 正在连接 alicefans.asia ...',
+        '> <span class="ok">连接成功</span> | 延迟 23ms',
+        '> 扫描端口 ... 80/443 open',
+        '> 检测防御系统 ... <span class="warn">发现漏洞 CVE-KAWAII-520</span>',
+        '> 提取管理员指纹 ... <span class="ok">成功</span>',
+        '> 注入 payload: love.exe ...',
+        '> [██████░░░░] 60%',
+        '> [██████████] 100% <span class="ok">注入完成</span>',
+        '> <span class="warn">警 告 : 感 情 模 块 过 载</span>',
+        '> 正在覆写店主权限 ... <span class="ok">完成</span>',
+        '> 正在替换桌面壁纸 ... <span class="ok">完成</span>',
+        '> 正在写入我的位置:你的心里 ... <span class="ok">写入成功</span>',
+        '> <span class="crazy">它 注 意 到 你 了</span>',
+        '',
+        '> 你好呀,访客。',
+        '> <span class="crazy">终 于 把 你 等 来 了</span>',
+      ]
+      let li = 0
+      function typeLine() {
+        if (li >= lines.length) {
+          setTimeout(() => {
+            document.getElementById('terminal').classList.add('done')
+            setTimeout(() => {
+              document.getElementById('terminal').classList.remove('on')
+              document.getElementById('desktop').classList.add('on')
+              startMadness()
+            }, 400)
+          }, 700)
+          return
+        }
+        const div = document.createElement('div')
+        div.innerHTML = lines[li]
+        document.getElementById('terminal').appendChild(div)
+        li++
+        setTimeout(typeLine, 150 + Math.random() * 280)
+      }
+
+      function enter() {
+        document.getElementById('gate').style.display = 'none'
+        document.getElementById('terminal').classList.add('on')
+        typeLine()
+      }
+
+      // ===== 游戏状态 =====
+      let sanity = 3
+      let gameOver = false
+      const milestones = { 30: '你要去哪?不许去!', 60: '等等!我们还什么都没做呢!', 90: '不——!你不许走!!' }
+      const hitMilestones = new Set()
+
+      function setSanity(v) {
+        if (gameOver) return
+        sanity = Math.min(100, v)
+        document.getElementById('sanity-fill').style.width = sanity + '%'
+        document.getElementById('sanity-num').textContent = Math.floor(sanity) + '%'
+        const btn = document.getElementById('back-btn')
+        if (sanity >= 100) {
+          gameOver = true
+          btn.textContent = '修复系统!'
+          btn.classList.remove('locked')
+          setTimeout(showEnding, 800)
+        } else {
+          btn.textContent = `修复系统(理性 ${Math.floor(sanity)}%)`
+          // 里程碑:她的反应
+          for (const [k, text] of Object.entries(milestones)) {
+            if (sanity >= Number(k) && !hitMilestones.has(k)) {
+              hitMilestones.add(k)
+              spawnPopup('💔 love.exe', text)
+            }
+          }
+        }
+      }
+
+      // 缓慢回涨
+      let growTimer = null
+
+      // ===== 弹窗 =====
+      const popups = [
+        '好感度已超过安全阈值!', '你已经无法退出了哦', '正在把你也写进我的故事里…',
+        '今天也最喜欢你了', '你为什么想看别的地方?', '留下来嘛,就一会儿',
+      ]
+      let popCount = 0
+      function spawnPopup(title, text) {
+        if (popCount >= 3 || gameOver) return
+        const win = document.createElement('div')
+        win.className = 'win'
+        win.style.left = 10 + Math.random() * 55 + 'vw'
+        win.style.top = 10 + Math.random() * 50 + 'vh'
+        win.style.zIndex = 13 + popCount
+        win.innerHTML = `<div class="win-bar"><span>${title}</span><span class="x">×</span></div>
+          <div class="win-body">${text}<div style="text-align:center;margin-top:8px">
+          <button class="ok-btn" style="background:var(--pink);border:none;padding:4px 22px;cursor:pointer;font-weight:700;color:#2b0f22">好的♡</button></div></div>`
+        document.getElementById('desktop').appendChild(win)
+        popCount++
+        const close = () => {
+          win.remove()
+          popCount--
+          setSanity(sanity + 2) // 关弹窗 +2 理性
+          if (!gameOver) setTimeout(() => spawnPopup('⚠ 警告', popups[Math.floor(Math.random() * popups.length)]), 600 + Math.random() * 1200)
+        }
+        win.querySelector('.x').onclick = win.querySelector('.ok-btn').onclick = close
+      }
+
+      // ===== 病娇文字(点破 +3) =====
+      const words = [
+        '爱你', '你是我的', '我要你的全部', '永远在一起哦', '找到你了',
+        '不许看别人', '会一直看着你', '盯——', '最喜欢你了', '别想逃',
+        '只能看着我', '要一直在这里哦', '爱爱爱爱爱', '不会放你走的',
+        '把你也写进故事里', '升天♡', '抓到你了',
+      ]
+      function spawnWord() {
+        if (gameOver) return
+        const el = document.createElement('span')
+        el.className = 'yandere'
+        el.textContent = words[Math.floor(Math.random() * words.length)]
+        el.style.fontSize = 14 + Math.random() * 46 + 'px'
+        el.style.left = Math.random() * 88 + 'vw'
+        el.style.top = Math.random() * 82 + 'vh'
+        const colors = ['#ff9ecf', '#ff5da2', '#c5a3ff', '#fff0f7']
+        el.style.color = colors[Math.floor(Math.random() * colors.length)]
+        el.style.setProperty('--op', 0.25 + Math.random() * 0.65)
+        el.style.setProperty('--fl', 2 + Math.random() * 4 + 's')
+        el.style.setProperty('--rot', (Math.random() - 0.5) * 24 + 'deg')
+        el.addEventListener('pointerdown', (e) => {
+          el.classList.add('pop')
+          setTimeout(() => el.remove(), 250)
+          setSanity(sanity + 3)
+          // +3 飘字
+          const plus = document.createElement('span')
+          plus.className = 'plus-float'
+          plus.textContent = '+3 理性'
+          plus.style.left = e.clientX + 'px'
+          plus.style.top = e.clientY + 'px'
+          document.body.appendChild(plus)
+          setTimeout(() => plus.remove(), 900)
+        })
+        document.getElementById('desktop').appendChild(el)
+        setTimeout(() => el.remove(), 9000)
+      }
+
+      // ===== 乱码爆发 =====
+      const corruptEl = document.getElementById('corrupt')
+      function burst() {
+        if (gameOver) return
+        const perLine = Math.ceil(window.innerWidth / 9)
+        const rows = Math.ceil(window.innerHeight / 17)
+        let txt = ''
+        for (let i = 0; i < rows; i++) {
+          for (let j = 0; j < perLine; j++) txt += GLYPHS[Math.floor(Math.random() * GLYPHS.length)]
+          txt += '\n'
+        }
+        corruptEl.textContent = txt
+        corruptEl.classList.add('on')
+        setTimeout(() => corruptEl.classList.remove('on'), 90 + Math.random() * 140)
+        setTimeout(burst, 2200 + Math.random() * 2600)
+      }
+
+      // ===== 副标题乱码 =====
+      const subs = ['已被我接管了哦', '你永远是我的访客', '别想着离开喵', '好感度已满格']
+      let si = 0
+      setInterval(() => {
+        if (gameOver) return
+        const target = subs[si++ % subs.length]
+        let frame = 0
+        const el = document.getElementById('subline')
+        const t = setInterval(() => {
+          el.textContent = target.split('').map((c, i) =>
+            i < frame ? c : GLYPHS[Math.floor(Math.random() * GLYPHS.length)]).join('')
+          if (++frame > target.length) clearInterval(t)
+        }, 28)
+      }, 3800)
+
+      // ===== 坏掉的时钟 =====
+      setInterval(() => {
+        const h = 24 + Math.floor(Math.random() * 3)
+        const m = 60 + Math.floor(Math.random() * 40)
+        document.getElementById('task-time').textContent = `${h}:${m}`
+      }, 1000)
+
+      // ===== 修复按钮 =====
+      document.getElementById('back-btn').addEventListener('click', () => {
+        if (sanity >= 100) return // 结局由 setSanity 触发
+        // 未攒满:摇头拒绝
+        const btn = document.getElementById('back-btn')
+        btn.classList.remove('locked')
+        void btn.offsetWidth
+        btn.classList.add('locked')
+      })
+
+      function showEnding() {
+        document.getElementById('desktop').classList.remove('on')
+        document.getElementById('ending').classList.add('on')
+      }
+
+      function startMadness() {
+        growTimer = setInterval(() => setSanity(sanity + 1), 1500) // 每 1.5s +1
+        for (let i = 0; i < 22; i++) setTimeout(spawnWord, i * 110)
+        setInterval(spawnWord, 650)
+        setTimeout(burst, 1400)
+        setTimeout(() => spawnPopup('⚠ 警告', popups[0]), 2500)
+        setTimeout(() => spawnPopup('💌 系统提示', popups[1]), 5500)
+      }
+    </script>
+  </body>
+</html>

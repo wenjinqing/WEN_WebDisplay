@@ -102,7 +102,9 @@ function closePortal() {
 
 function enterGlitch() {
   localStorage.setItem('catcafe_ach_glitch', '1')
-  location.href = '/glitch.html'
+  // 用 origin 拼接:网页是 https://alicefans.cn,APP 内是 https://localhost(glitch.html 已打包进 APP),
+  // 不能用 '/glitch.html' —— 会被 APP 里的 <base> 带去线上
+  location.href = location.origin + '/glitch.html'
 }
 
 function say(who, text, ms = 3000) {

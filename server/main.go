@@ -1265,6 +1265,129 @@ func handlePointsAdd(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"points": total, "title": title})
 }
 
+// ---------- 猫爪签到 ----------
+
+const checkinFile = "/var/lib/catcafe/checkins.json" // 签到记录
+
+type checkinRec struct {
+	Last   string   `json:"last"`   // 上次签到日期 2006-01-02
+	Streak int      `json:"streak"` // 连续天数
+	Total  int      `json:"total"`  // 累计签到次数
+	Dates  []string `json:"dates"`  // 最近签到日期(画日历用,最多留 90 天)
+}
+
+var (
+	checkinMu sync.Mutex
+	checkins  = map[string]*checkinRec{} // key: 昵称
+)
+
+func loadCheckins() {
+	data, err := os.ReadFile(checkinFile)
+	if err == nil {
+		json.Unmarshal(data, &checkins)
+	}
+}
+
+func saveCheckins() {
+	data, _ := json.MarshalIndent(checkins, "", "  ")
+	tmp := checkinFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err == nil {
+		os.Rename(tmp, checkinFile)
+	}
+}
+
+// GET  /api/checkin?nick=xxx — 查询签到状态
+// POST /api/checkin {nick}   — 今日盖爪签到:基础 2 鱼干,连续 7 天额外 +5,连续 30 天额外 +15
+func handleCheckin(w http.ResponseWriter, r *http.Request) {
+	today := time.Now().Format("2006-01-02")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+
+	switch r.Method {
+	case http.MethodGet:
+		nick := clean(r.URL.Query().Get("nick"), maxNickLen)
+		checkinMu.Lock()
+		rec := checkins[nick]
+		checkinMu.Unlock()
+		if rec == nil {
+			rec = &checkinRec{}
+		}
+		writeJSON(w, 200, map[string]any{
+			"todayDone": rec.Last == today,
+			"streak":    rec.Streak,
+			"total":     rec.Total,
+			"dates":     rec.Dates,
+		})
+
+	case http.MethodPost:
+		var req struct {
+			Nick string `json:"nick"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "参数不对"})
+			return
+		}
+		nick := clean(req.Nick, maxNickLen)
+		if isReserved(nick) {
+			writeJSON(w, 400, map[string]string{"error": "这个名字属于店长哦"})
+			return
+		}
+		if nick == "" || nick == "匿名猪咪" {
+			writeJSON(w, 400, map[string]string{"error": "先在「我的」绑个昵称才能签到喵"})
+			return
+		}
+
+		checkinMu.Lock()
+		rec := checkins[nick]
+		if rec == nil {
+			rec = &checkinRec{}
+			checkins[nick] = rec
+		}
+		if rec.Last == today {
+			streak := rec.Streak
+			checkinMu.Unlock()
+			writeJSON(w, 200, map[string]any{"todayDone": true, "already": true, "streak": streak})
+			return
+		}
+		if rec.Last == yesterday {
+			rec.Streak++
+		} else {
+			rec.Streak = 1
+		}
+		rec.Last = today
+		rec.Total++
+		rec.Dates = append(rec.Dates, today)
+		if len(rec.Dates) > 90 {
+			rec.Dates = rec.Dates[len(rec.Dates)-90:]
+		}
+		streak := rec.Streak
+		saveCheckins()
+		checkinMu.Unlock()
+
+		// 奖励:每日 2,逢 7 连 +5,逢 30 连 +15
+		reward := 2
+		bonus := 0
+		if streak%30 == 0 {
+			bonus = 15
+		} else if streak%7 == 0 {
+			bonus = 5
+		}
+		addPoints(nick, reward+bonus)
+
+		pointsMu.Lock()
+		total := points[nick]
+		pointsMu.Unlock()
+		title, _ := titleFor(total)
+		writeJSON(w, 200, map[string]any{
+			"todayDone": true, "streak": streak,
+			"reward": reward, "bonus": bonus,
+			"points": total, "title": title,
+		})
+
+	default:
+		writeJSON(w, 405, map[string]string{"error": "method not allowed"})
+	}
+}
+
 // ---------- 在线猪咪 ----------
 
 var (
@@ -2696,6 +2819,7 @@ func main() {
 	loadStats()
 	loadComments()
 	loadPoints()
+	loadCheckins()
 	loadTokens()
 	loadAgentKey()
 	loadPig()
@@ -2720,6 +2844,7 @@ func main() {
 	mux.HandleFunc("/api/comments", handleComments)
 	mux.HandleFunc("/api/points", handlePoints)
 	mux.HandleFunc("/api/points/add", handlePointsAdd)
+	mux.HandleFunc("/api/checkin", handleCheckin)
 	mux.HandleFunc("/api/recap", handleRecap)
 	mux.HandleFunc("/api/rss", handleRSS)
 	mux.HandleFunc("/api/subscribe", handleSubscribe)
