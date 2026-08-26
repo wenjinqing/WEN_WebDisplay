@@ -49,6 +49,9 @@ onUnmounted(() => clearInterval(timer))
       <a href="/go/pixiv.html" target="_blank" rel="noopener" class="pixiv">
         作者 P 站主页 ↗
       </a>
+      <a href="/downloads/app/catcafe.apk" class="pixiv app-link">
+        下载安卓 APP(涩猫咖啡厅)
+      </a>
       <div class="beian-row">
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="beian">
           闽ICP备2026031516号

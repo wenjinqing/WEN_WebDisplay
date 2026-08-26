@@ -42,12 +42,9 @@ async function onInstallClick() {
     tip.value = '开始下载 APK 安装包,下好后点开安装(需允许「未知来源」安装)喵~'
     clearTimeout(tipTimer)
     tipTimer = setTimeout(() => (tip.value = ''), 8000)
-    const a = document.createElement('a')
-    a.href = '/downloads/app/catcafe.apk'
-    a.download = '涩猫咖啡厅.apk'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
+    // 用页面跳转方式触发下载(响应头是 attachment,页面不会真的跳走),
+    // 比程序创建 <a> 点击在国产浏览器里兼容性更好
+    location.href = '/downloads/app/catcafe.apk'
     return
   }
   if (deferredPrompt) {

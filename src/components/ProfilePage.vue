@@ -104,13 +104,13 @@ async function doUpdate() {
       recursive: true,
     })
     const uri = (await Filesystem.getUri({ path: fileName, directory: Directory.Cache })).uri
-    await FileOpener.open({
-      filePath: uri,
+    await FileOpener.openFile({
+      path: uri,
       mimeType: 'application/vnd.android.package-archive',
     })
   } catch (err) {
-    // 应用内安装失败就退回系统浏览器下载
-    updateError.value = '应用内下载失败,已帮你打开浏览器下载'
+    // 应用内安装失败就退回系统浏览器下载,并把原因显示出来方便排查
+    updateError.value = '应用内安装没拉起(' + ((err && err.message) || err) + '),已帮你打开浏览器下载'
     try {
       await Browser.open({ url: v.url })
     } catch {
