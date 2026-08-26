@@ -11,6 +11,14 @@
 
 ## 打包步骤
 
+服务器上直接跑脚本即可(包含下列全部步骤):
+
+```bash
+/root/build-catcafe-apk.sh
+```
+
+手动步骤:
+
 ```bash
 cd /root/workspace/WEN_WebDisplay
 npm run build
@@ -28,6 +36,19 @@ cp app/build/outputs/apk/release/app-release.apk /var/www/downloads/app/catcafe.
 ```
 
 发布后用户在官网导航栏点「下载应用」(安卓)即可下载安装。
+
+## 服务器内存注意
+
+本机只有 2G 内存,Gradle 容易 OOM。已采取:`gradle.properties` 限堆(-Xmx896m /
+kotlin 640m / workers=1)+ 4G swap 文件 `/swapfile-app`(重启后需 `swapon /swapfile-app`)。
+若还是偶发被杀,直接重跑脚本,增量编译会很快走完。
+
+## 发版 checklist(APP 内「检查更新」依赖)
+
+1. `android/app/build.gradle`:versionCode 整数 +1,versionName 顺手改
+2. 打包并把 APK 覆盖到 `/var/www/downloads/app/catcafe.apk`
+3. 更新 `/var/www/downloads/app/version.json` 里的 versionCode / versionName / notes
+   (老版本 APP 的「我的 → 检查更新」就是读这个文件,versionCode 变大才会提示更新)
 
 ## 版本号
 
