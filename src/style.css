@@ -387,3 +387,24 @@ body.night .special-title {
   background-clip: text;
   color: transparent;
 }
+
+/* ==================== APP 模式(body.is-app)==================== */
+/* 画布锁定:禁止橡皮筋回弹和横向拖动画布偏移 */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+body.is-app {
+  touch-action: pan-y; /* 只允许竖向滚动 */
+  overflow-x: hidden;
+}
+
+/* 悬浮按钮抬到底部 Tab 栏上方,避免遮挡 Tab 点击 */
+body.is-app .fun-menu {
+  bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+body.is-app .to-top {
+  bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+}

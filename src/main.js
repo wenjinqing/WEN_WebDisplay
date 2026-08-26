@@ -1,6 +1,5 @@
 import { createApp } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import App from './App.vue'
 import './style.css'
 
 // ============================================================
@@ -10,6 +9,7 @@ import './style.css'
 // ============================================================
 const isNativeApp = Capacitor.isNativePlatform()
 if (isNativeApp) {
+  document.body.classList.add('is-app')
   const SITE_ORIGIN = 'https://alicefans.cn'
   // 1. fetch 的相对路径全部指向线上 API
   const origFetch = window.fetch.bind(window)
@@ -53,7 +53,11 @@ const reveal = {
   },
 }
 
-createApp(App).directive('reveal', reveal).mount('#app')
+// 动态引入根组件:保证上面的 fetch/base 补丁先于各组件模块(如 data.js 的
+// 模块级 fetch)执行,否则 APP 里内容接口会打到 https://localhost 拿不到数据
+import('./App.vue').then(({ default: App }) => {
+  createApp(App).directive('reveal', reveal).mount('#app')
+})
 
 // PWA Service Worker 注册(APP 内不需要,页面已离线打包)
 if (!isNativeApp && 'serviceWorker' in navigator && location.protocol === 'https:') {
